@@ -18,7 +18,9 @@ frontend/dist/
 dist/
 
 # IDE & OS files
+.agents/
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
