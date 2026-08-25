@@ -1,0 +1,129 @@
+import React, { useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { apiRequest, getDeviceFingerprint } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { ShieldCheck, AlertCircle, CheckCircle } from 'lucide-react';
+
+const Verify: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { setUserProfile } = useAuth();
+
+  const email = searchParams.get('email') || '';
+  const type = searchParams.get('type') || 'email';
+
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      if (type === 'email') {
+        const res = await apiRequest('POST', '/api/auth/verify-email', { email, otp }, true);
+        if (res.status === 'success') {
+          setSuccess('Email successfully verified! Redirecting to login...');
+          setTimeout(() => navigate('/login'), 2000);
+        }
+      } else {
+        const fingerprint = getDeviceFingerprint();
+        const res = await apiRequest('POST', '/api/auth/verify-device', {
+          email,
+          otp,
+          device_fingerprint: fingerprint
+        }, true);
+        
+        if (res.status === 'success') {
+          localStorage.setItem('accessToken', res.access_token);
+          localStorage.setItem('refreshToken', res.refresh_token);
+          localStorage.setItem('user', JSON.stringify(res.user));
+          setUserProfile(res.user);
+          setSuccess('Device verified successfully! Loading dashboard...');
+          setTimeout(() => navigate('/dashboard'), 2000);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Verification failed. Please check the code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="page-center">
+      <div className="auth-card animate-slideUp">
+        <div className="card" style={{ textAlign: 'center' }}>
+          {/* Icon */}
+          <div className="icon-circle icon-circle-primary" style={{ margin: '0 auto 1.25rem', width: '56px', height: '56px' }}>
+            <ShieldCheck size={28} />
+          </div>
+
+          <h2 style={{ marginBottom: '0.375rem' }}>
+            {type === 'device' ? 'Device Verification' : 'Verify your email'}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9375rem' }}>
+            We sent a 6-digit code to<br />
+            <strong style={{ color: 'var(--text)' }}>{email}</strong>
+          </p>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="alert alert-danger" style={{ textAlign: 'left' }}>
+              <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Success Alert */}
+          {success && (
+            <div className="alert alert-success" style={{ textAlign: 'left' }}>
+              <CheckCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+              <span>{success}</span>
+            </div>
+          )}
+
+          {/* OTP Form */}
+          <form onSubmit={handleSubmit}>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label className="form-label" htmlFor="otp-input" style={{ textAlign: 'left' }}>Verification Code</label>
+              <input
+                id="otp-input"
+                type="text"
+                maxLength={6}
+                className="form-input"
+                style={{
+                  textAlign: 'center',
+                  fontSize: '1.75rem',
+                  letterSpacing: '8px',
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-heading)',
+                  padding: '0.75rem'
+                }}
+                placeholder="000000"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                required
+                autoFocus
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-full btn-lg"
+              disabled={loading || otp.length !== 6}
+            >
+              {loading ? <div className="spinner spinner-sm spinner-white" /> : 'Verify Code'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Verify;

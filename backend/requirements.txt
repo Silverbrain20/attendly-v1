@@ -1,0 +1,10 @@
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic[email]>=2.6.0
+pyjwt>=2.8.0
+passlib[bcrypt]>=1.7.4
+psycopg2-binary>=2.9.9
+qrcode>=7.4.2
+resend>=2.1.0
+slowapi>=0.1.9
+python-dotenv>=1.0.1
