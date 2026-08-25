@@ -163,7 +163,20 @@ const ResetPassword: React.FC = () => {
           ) : (
             /* Step 2: Reset Password */
             <form onSubmit={handleResetPassword}>
+              <div style={{
+                background: 'var(--bg-subtle)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.625rem 0.875rem',
+                marginBottom: '1rem',
+                fontSize: '0.8125rem',
+                color: 'var(--text-muted)'
+              }}>
+                💡 <strong>Check your email:</strong> If you don't find the code, please check your <strong>Spam</strong> folder.
+              </div>
+
               <div className="form-group">
+
                 <label className="form-label" htmlFor="reset-otp">Reset Code</label>
                 <input
                   id="reset-otp"

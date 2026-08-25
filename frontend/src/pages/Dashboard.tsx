@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../utils/api';
 import {
   MapPin, AlertTriangle, Plus, Download, BookOpen, BarChart3,
-  Radio, Shield, Users, LogOut, Key, Clock, ChevronRight, Inbox
+  Radio, Shield, LogOut, Key, Clock, Inbox
 } from 'lucide-react';
+
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   
   const [courses, setCourses] = useState<any[]>([]);
   const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -15,6 +18,7 @@ const Dashboard: React.FC = () => {
   
   // Student Specific
   const [summaryData, setSummaryData] = useState<any[]>([]);
+  const [myActiveSessions, setMyActiveSessions] = useState<any[]>([]);
 
   // Class Rep Specific
   const [activeSession, setActiveSession] = useState<any>(null);
@@ -66,6 +70,9 @@ const Dashboard: React.FC = () => {
         
         const allRes = await apiRequest('GET', '/api/courses/all');
         setAllCourses(allRes.data || []);
+
+        const activeSessRes = await apiRequest('GET', '/api/sessions/my-active');
+        setMyActiveSessions(activeSessRes.data || []);
       } else {
         if (coursesRes.data && coursesRes.data.length > 0) {
           const firstCourse = coursesRes.data[0].id;
@@ -87,8 +94,12 @@ const Dashboard: React.FC = () => {
       setActiveSession(session);
 
       if (session) {
-        const qrRes = await apiRequest('GET', `/api/sessions/${session.id}/qr`);
-        setSessionQr(qrRes.qr_code_image);
+        if (session.qr_code_image) {
+          setSessionQr(session.qr_code_image);
+        } else {
+          const qrRes = await apiRequest('GET', `/api/sessions/${session.id}/qr`);
+          setSessionQr(qrRes.qr_code_image);
+        }
 
         const countRes = await apiRequest('GET', `/api/overrides/session/${session.id}/count`);
         setOverrideCount(countRes.count);
@@ -108,6 +119,7 @@ const Dashboard: React.FC = () => {
       console.error(e);
     }
   };
+
 
   const handleCourseChange = async (courseId: string) => {
     setSelectedCourse(courseId);
@@ -135,12 +147,16 @@ const Dashboard: React.FC = () => {
         course_code: newCourseCode,
         course_title: newCourseTitle
       });
-      if (res.status === 'success') {
-        setActionSuccess('Course created successfully!');
+      if (res.status === 'success' && res.data) {
+        const createdCourse = res.data;
+        setActionSuccess(`Course ${createdCourse.course_code} created successfully!`);
         setNewCourseCode('');
         setNewCourseTitle('');
         setShowCourseForm(false);
-        await fetchData();
+        const updatedCourses = [...courses, createdCourse];
+        setCourses(updatedCourses);
+        setSelectedCourse(createdCourse.id);
+        await loadSessionAndOverrides(createdCourse.id);
       }
     } catch (e: any) {
       setActionError(e.message || 'Course creation failed');
@@ -151,6 +167,17 @@ const Dashboard: React.FC = () => {
     e.preventDefault();
     setActionError('');
     setActionSuccess('');
+
+    if (!selectedCourse) {
+      setActionError('Please select or create a course first before launching a session.');
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setActionError('Geolocation is not supported by your browser.');
+      return;
+    }
+
     try {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -162,24 +189,33 @@ const Dashboard: React.FC = () => {
               geofence_radius_m: sessionRadius,
               duration_minutes: sessionDuration
             });
-            if (res.status === 'success') {
+            if (res.status === 'success' && res.data) {
               setActionSuccess('Session started successfully!');
               setShowSessionForm(false);
+              setActiveSession(res.data);
+              if (res.data.qr_code_image) {
+                setSessionQr(res.data.qr_code_image);
+              }
               await loadSessionAndOverrides(selectedCourse);
             }
           } catch (err: any) {
             setActionError(err.message || 'Session creation failed');
           }
         },
-        (_error) => {
-          setActionError('Location access is required to set the session center coordinates.');
+        (error) => {
+          setActionError(
+            error.code === error.PERMISSION_DENIED
+              ? 'Location permission denied. Please allow GPS location access in your browser to start a session.'
+              : 'Could not acquire GPS position. Please ensure location services are enabled.'
+          );
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 10000 }
       );
     } catch (e: any) {
       setActionError(e.message || 'Failed to initialize session location');
     }
   };
+
 
   const handleEndSession = async () => {
     if (!activeSession) return;
@@ -380,7 +416,53 @@ const Dashboard: React.FC = () => {
               )}
             </div>
 
+            {/* Active Attendance Sessions */}
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
+                  <Radio size={18} />
+                </div>
+                <h2 style={{ fontSize: '1.25rem' }}>Active Attendance Sessions</h2>
+              </div>
+              {myActiveSessions.length === 0 ? (
+                <div className="empty-state" style={{ padding: '1.5rem 0' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem', margin: 0 }}>
+                    No active attendance sessions currently running for your enrolled courses.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {myActiveSessions.map((sess) => (
+                    <div key={sess.id} className="attendance-row" style={{ borderLeft: '4px solid var(--primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.0625rem', marginBottom: '0.125rem' }}>{sess.course_code} — {sess.course_title}</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+                          Geofence radius: {sess.geofence_radius_m} meters
+                        </p>
+                      </div>
+                      <div>
+                        {sess.already_marked ? (
+                          <span className="badge badge-success" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>
+                            ✓ Attendance Marked
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/attend/${sess.id}`)}
+                            className="btn btn-primary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
+                          >
+                            <MapPin size={16} /> Mark Attendance
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Attendance Summary */}
+
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div className="icon-circle" style={{ width: '36px', height: '36px', background: '#F0FDF4', color: 'var(--success)' }}>

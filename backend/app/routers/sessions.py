@@ -10,15 +10,26 @@ from app.config.settings import settings
 
 router = APIRouter(prefix="/api/sessions", tags=["Sessions"])
 
+def generate_qr_code_data_url(session_id: str) -> str:
+    session_link = f"{settings.FRONTEND_URL}/attend/{session_id}"
+    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr.add_data(session_link)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_base64 = base64.b64encode(buf.getvalue()).decode()
+    return f"data:image/png;base64,{qr_base64}"
+
 @router.post("")
 def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor(commit=True) as cursor:
         # Check if there is already an active session for the course code of this course
-        # First find the course code
         cursor.execute("SELECT course_code FROM courses WHERE id = %s", (data.course_id,))
         course = cursor.fetchone()
         if not course:
-            raise HTTPException(status_code=44, detail="Course not found")
+            raise HTTPException(status_code=404, detail="Course not found")
         
         course_code = course["course_code"]
 
@@ -50,17 +61,8 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
         )
         session = cursor.fetchone()
 
-    # Generate QR Code image data
     session_link = f"{settings.FRONTEND_URL}/attend/{session['id']}"
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(session_link)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    qr_base64 = base64.b64encode(buf.getvalue()).decode()
-    qr_data_url = f"data:image/png;base64,{qr_base64}"
+    qr_data_url = generate_qr_code_data_url(session["id"])
 
     return {
         "status": "success",
@@ -75,6 +77,29 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
             "qr_code_image": qr_data_url
         }
     }
+
+@router.get("/my-active")
+def get_my_active_sessions(user: dict = Depends(get_current_user)):
+    with db.get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT s.id, s.course_id, s.latitude, s.longitude, s.geofence_radius_m, s.start_time, s.end_time,
+                   c.course_code, c.course_title,
+                   EXISTS(
+                       SELECT 1 FROM attendance_records ar 
+                       WHERE ar.session_id = s.id AND ar.student_id = %s
+                   ) as already_marked
+            FROM attendance_sessions s
+            JOIN courses c ON s.course_id = c.id
+            JOIN course_enrollments ce ON c.id = ce.course_id
+            WHERE ce.user_id = %s AND s.ended_at IS NULL AND s.end_time > NOW()
+            ORDER BY s.start_time DESC
+            """,
+            (user["user_id"], user["user_id"])
+        )
+        sessions = cursor.fetchall()
+        
+    return {"status": "success", "data": sessions}
 
 @router.get("/active/{course_id}")
 def get_active_session(course_id: str, user: dict = Depends(get_current_user)):
@@ -94,11 +119,13 @@ def get_active_session(course_id: str, user: dict = Depends(get_current_user)):
         return {"status": "success", "data": None}
         
     session_link = f"{settings.FRONTEND_URL}/attend/{session['id']}"
+    qr_data_url = generate_qr_code_data_url(session["id"])
     return {
         "status": "success",
         "data": {
             **session,
-            "attendance_link": session_link
+            "attendance_link": session_link,
+            "qr_code_image": qr_data_url
         }
     }
 
@@ -118,7 +145,7 @@ def get_session_details(session_id: str, user: dict = Depends(get_current_user))
         session = cursor.fetchone()
         
     if not session:
-        raise HTTPException(status_code=44, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found")
         
     return {"status": "success", "data": session}
 
@@ -146,16 +173,6 @@ def end_session(session_id: str, user: dict = Depends(get_class_rep_user)):
 
 @router.get("/{session_id}/qr")
 def get_session_qr(session_id: str, user: dict = Depends(get_current_user)):
-    # Generate QR Code image data
-    session_link = f"{settings.FRONTEND_URL}/attend/{session_id}"
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(session_link)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    qr_base64 = base64.b64encode(buf.getvalue()).decode()
-    qr_data_url = f"data:image/png;base64,{qr_base64}"
-    
+    qr_data_url = generate_qr_code_data_url(session_id)
     return {"status": "success", "qr_code_image": qr_data_url}
+

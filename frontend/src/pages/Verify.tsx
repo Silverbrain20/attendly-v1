@@ -66,10 +66,24 @@ const Verify: React.FC = () => {
           <h2 style={{ marginBottom: '0.375rem' }}>
             {type === 'device' ? 'Device Verification' : 'Verify your email'}
           </h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9375rem' }}>
-            We sent a 6-digit code to<br />
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem', fontSize: '0.9375rem' }}>
+            We sent a 6-digit verification code to<br />
             <strong style={{ color: 'var(--text)' }}>{email}</strong>
           </p>
+
+          <div style={{
+            background: 'var(--bg-subtle)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.75rem 1rem',
+            marginBottom: '1.5rem',
+            fontSize: '0.8125rem',
+            color: 'var(--text-muted)',
+            textAlign: 'left'
+          }}>
+            💡 <strong>Didn't see the email?</strong> Please check your <strong>Spam</strong> or <strong>Junk</strong> folder.
+          </div>
+
 
           {/* Error Alert */}
           {error && (

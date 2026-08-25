@@ -97,7 +97,7 @@ const Register: React.FC = () => {
                   style={{ paddingLeft: '2.5rem' }}
                   value={matric}
                   onChange={(e) => setMatric(e.target.value)}
-                  placeholder="e.g. CSC/2022/001"
+                  placeholder="e.g. 22/52HP123"
                   required
                 />
               </div>
