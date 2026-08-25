@@ -67,10 +67,25 @@ export async function apiRequest(
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.detail || 'Request failed');
+    let msg = 'Request failed';
+    if (typeof data.detail === 'string') {
+      msg = data.detail;
+    } else if (Array.isArray(data.detail)) {
+      msg = data.detail.map((item: any) => {
+        if (typeof item === 'string') return item;
+        const field = item.loc ? item.loc.slice(1).join('.') : '';
+        return field ? `${field}: ${item.msg}` : item.msg || JSON.stringify(item);
+      }).join('; ');
+    } else if (data.detail && typeof data.detail === 'object') {
+      msg = data.detail.msg || JSON.stringify(data.detail);
+    } else if (data.message) {
+      msg = data.message;
+    }
+    throw new Error(msg);
   }
 
   return data;
+
 }
 
 async function attemptTokenRefresh(): Promise<boolean> {
