@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from datetime import datetime, timedelta
 from app.config.database import db
 from app.schemas.validators import (
-    StudentRegister, StudentLogin, VerifyEmail, VerifyDevice,
+    StudentRegister, StudentLogin, VerifyEmail, VerifyDevice, ResendOtp,
     ForgotPassword, ResetPassword, UpdateProfile
 )
 from app.utils.crypto import (
@@ -150,6 +150,35 @@ def verify_email(request: Request, data: VerifyEmail):
         )
 
     return {"status": "success", "message": "Email verified successfully"}
+
+
+@router.post("/resend-otp")
+@limiter.limit("5/15minutes")
+def resend_otp(request: Request, data: ResendOtp):
+    with db.get_cursor(commit=True) as cursor:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (data.email,))
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        new_otp = generate_otp()
+        otp_expiry = datetime.utcnow() + timedelta(minutes=15)
+
+        if data.type == "device":
+            cursor.execute(
+                "UPDATE users SET device_verification_otp = %s, device_verification_expires = %s WHERE id = %s",
+                (new_otp, otp_expiry, user["id"])
+            )
+            send_device_verification_email(user["email"], user["full_name"], new_otp)
+        else:
+            cursor.execute(
+                "UPDATE users SET email_verification_otp = %s, email_verification_expires = %s WHERE id = %s",
+                (new_otp, otp_expiry, user["id"])
+            )
+            send_verification_email(user["email"], user["full_name"], new_otp)
+
+    return {"status": "success", "message": "Verification code resent successfully"}
 
 
 @router.post("/verify-device")

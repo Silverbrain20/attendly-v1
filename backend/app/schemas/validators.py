@@ -22,6 +22,11 @@ class VerifyEmail(BaseModel):
     otp: str = Field(..., min_length=6, max_length=8)
 
 
+class ResendOtp(BaseModel):
+    email: EmailStr = Field(..., max_length=254)
+    type: str = Field('email', max_length=20)
+
+
 class VerifyDevice(BaseModel):
     email: EmailStr = Field(..., max_length=254)
     otp: str = Field(..., min_length=6, max_length=8)

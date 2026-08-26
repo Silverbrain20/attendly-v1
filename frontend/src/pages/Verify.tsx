@@ -55,6 +55,32 @@ const Verify: React.FC = () => {
     }
   };
 
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  React.useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
+  const handleResend = async () => {
+    if (cooldown > 0 || resending || !email) return;
+    setResending(true);
+    setError('');
+    setSuccess('');
+    try {
+      await apiRequest('POST', '/api/auth/resend-otp', { email, type }, true);
+      setSuccess('A new verification code has been sent!');
+      setCooldown(30);
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend code. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="page-center">
       <div className="auth-card animate-slideUp">
@@ -135,6 +161,26 @@ const Verify: React.FC = () => {
               {loading ? <div className="spinner spinner-sm spinner-white" /> : 'Verify Code'}
             </button>
           </form>
+
+          <div style={{ marginTop: '1.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Didn't receive code?{' '}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending || cooldown > 0}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: cooldown > 0 ? 'var(--text-muted)' : 'var(--primary)',
+                fontWeight: 600,
+                cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+                padding: 0,
+                textDecoration: 'underline'
+              }}
+            >
+              {resending ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
