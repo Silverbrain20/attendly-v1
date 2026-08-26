@@ -77,33 +77,10 @@ def send_device_verification_email(to_email: str, name: str, otp: str) -> bool:
 
 def _send_worker(to_email: str, subject: str, html: str):
     """Executes email transmission in background thread so HTTP requests respond instantly."""
-    # 1. Try Supabase Auth API first if configured
-    supabase_url = settings.EFFECTIVE_SUPABASE_URL
-    if supabase_url and settings.SUPABASE_KEY:
-        try:
-            import json
-            import urllib.request
-            url = f"{supabase_url.rstrip('/')}/auth/v1/otp"
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Content-Type": "application/json"
-            }
-            auth_token = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
-            headers["Authorization"] = f"Bearer {auth_token}"
-
-            payload = json.dumps({"email": to_email, "create_user": True}).encode("utf-8")
-            req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status in (200, 201):
-                    print(f"[SUPABASE SUCCESS] Email OTP dispatched to {to_email} via Supabase Auth API")
-                    return
-        except Exception as e:
-            print(f"[SUPABASE WARNING] Supabase Auth delivery attempt notice: {e}. Trying fallbacks...")
-
-    # 2. Try Resend API first (Fastest HTTP delivery over 443)
+    # 1. Try Resend HTTP API over Port 443 (Sends full custom HTML with 6-digit OTP code)
     if settings.RESEND_API_KEY:
         try:
-            # Resend requires onboarding@resend.dev unless custom domain is verified
+            # Resend uses onboarding@resend.dev unless custom domain is verified
             from_sender = "onboarding@resend.dev"
             resend.Emails.send({
                 "from": f"Attendly <{from_sender}>",
@@ -111,13 +88,13 @@ def _send_worker(to_email: str, subject: str, html: str):
                 "subject": subject,
                 "html": html
             })
-            print(f"[RESEND SUCCESS] Email sent to {to_email} via Resend")
+            print(f"[RESEND SUCCESS] Custom 6-digit OTP email sent to {to_email} via Resend HTTP API")
             return
         except Exception as e:
             print(f"[RESEND WARNING] Resend delivery failed: {e}. Trying SMTP...")
 
-    # 3. Try SMTP with 5-second socket timeout
-    if settings.SMTP_USER and settings.SMTP_PASSWORD:
+    # 2. Try SMTP with 5-second socket timeout
+    if settings.SMTP_USER and settings.SMTP_PASSWORD and settings.SMTP_HOST:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
