@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { Compass, CheckCircle, XCircle, MapPin, AlertCircle } from 'lucide-react';
+import { Compass, CheckCircle, XCircle, MapPin, AlertCircle, ArrowRight } from 'lucide-react';
 import Logo from '../components/Logo';
 
 type AttendState = 'loading' | 'locating' | 'verifying' | 'success' | 'error';
@@ -10,11 +10,13 @@ type AttendState = 'loading' | 'locating' | 'verifying' | 'success' | 'error';
 const Attend: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   const [state, setState] = useState<AttendState>('loading');
   const [session, setSession] = useState<any>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [countdown, setCountdown] = useState<number>(3);
   const hasStarted = useRef(false);
 
   useEffect(() => {
@@ -27,6 +29,22 @@ const Attend: React.FC = () => {
     hasStarted.current = true;
     loadSession();
   }, [sessionId, user, authLoading]);
+
+  // Countdown timer for automatic redirect on success
+  useEffect(() => {
+    if (state !== 'success') return;
+    if (countdown <= 0) {
+      const courseCode = session?.course_code || '';
+      navigate(`/dashboard?marked=true&course=${encodeURIComponent(courseCode)}`);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [state, countdown, navigate, session]);
 
   const loadSession = async () => {
     try {
@@ -66,7 +84,9 @@ const Attend: React.FC = () => {
             longitude: position.coords.longitude,
           });
 
-          setDistance(markRes.distance_meters);
+          // Safely parse distance_meters from API response structure
+          const dist = markRes?.data?.distance_meters ?? markRes?.distance_meters ?? 0;
+          setDistance(dist);
           setState('success');
         } catch (e: any) {
           setState('error');
@@ -93,6 +113,11 @@ const Attend: React.FC = () => {
   const handleRetry = () => {
     setState('locating');
     triggerLocationCheck();
+  };
+
+  const handleGoDashboard = () => {
+    const courseCode = session?.course_code || '';
+    navigate(`/dashboard?marked=true&course=${encodeURIComponent(courseCode)}`);
   };
 
   return (
@@ -149,26 +174,34 @@ const Attend: React.FC = () => {
               <div className="icon-circle icon-circle-success" style={{ margin: '0 auto 1.25rem', width: '64px', height: '64px' }}>
                 <CheckCircle size={32} />
               </div>
-              <h2 style={{ color: 'var(--success)', marginBottom: '0.375rem' }}>Check-in successful</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', marginBottom: '1.5rem' }}>
-                {session?.course_code} — {session?.course_title}
+              <h2 style={{ color: 'var(--success)', marginBottom: '0.375rem' }}>Check-in Successful!</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', marginBottom: '1.25rem' }}>
+                <strong>{session?.course_code}</strong> — {session?.course_title}
               </p>
 
-              {distance !== null && (
+              {distance !== null && typeof distance === 'number' && (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
                   background: 'var(--bg-subtle)', border: '1px solid var(--border)',
                   padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)',
-                  marginBottom: '2rem', fontSize: '0.875rem', color: 'var(--text-secondary)'
+                  marginBottom: '1.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)'
                 }}>
                   <MapPin size={16} style={{ color: 'var(--primary)' }} />
-                  Distance: <strong style={{ color: 'var(--text)' }}>{distance.toFixed(1)}m</strong>
+                  Distance: <strong style={{ color: 'var(--text)' }}>{Number(distance).toFixed(1)}m</strong>
                 </div>
               )}
 
-              <Link to="/dashboard" className="btn btn-primary btn-full btn-lg">
-                Go to Dashboard
-              </Link>
+              <div style={{
+                background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#166534',
+                padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
+                marginBottom: '1.5rem', fontSize: '0.875rem'
+              }}>
+                ✓ Attendance recorded! Redirecting to dashboard in <strong>{countdown}s</strong>...
+              </div>
+
+              <button onClick={handleGoDashboard} className="btn btn-primary btn-full btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                Go to Dashboard Now <ArrowRight size={18} />
+              </button>
             </div>
           )}
 

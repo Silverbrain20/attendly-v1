@@ -2,10 +2,14 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Only load .env file in local development — on Render, env vars are set via dashboard
-_env_path = Path(__file__).resolve().parents[2] / ".env"
-if _env_path.exists():
-    load_dotenv(_env_path)
+# Load .env file in local development (checks project root and cwd)
+load_dotenv(override=True)
+_root_env = Path(__file__).resolve().parents[3] / ".env"
+if _root_env.exists():
+    load_dotenv(_root_env, override=True)
+_backend_env = Path(__file__).resolve().parents[2] / ".env"
+if _backend_env.exists():
+    load_dotenv(_backend_env, override=True)
 
 class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
@@ -17,8 +21,26 @@ class Settings:
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@attendly.com")
     
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_ANON_KEY", os.getenv("SUPABASE_KEY", ""))
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
+    @property
+    def EFFECTIVE_SUPABASE_URL(self) -> str:
+        if self.SUPABASE_URL:
+            return self.SUPABASE_URL
+        if "supabase" in self.DATABASE_URL:
+            import re
+            match = re.search(r"@db\.([a-z0-9]+)\.supabase\.co", self.DATABASE_URL)
+            if match:
+                return f"https://{match.group(1)}.supabase.co"
+            match_pooler = re.search(r"postgres\.([a-z0-9]+):", self.DATABASE_URL)
+            if match_pooler:
+                return f"https://{match_pooler.group(1)}.supabase.co"
+        return ""
+
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587")) if os.getenv("SMTP_PORT") else 587
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
 

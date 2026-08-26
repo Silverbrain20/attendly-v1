@@ -12,6 +12,27 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
 
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
+            """
+            SELECT s.course_id, s.created_by,
+                   ST_Y(s.location_point::geometry) as center_lat,
+                   ST_X(s.location_point::geometry) as center_lng
+            FROM attendance_sessions s
+            WHERE s.id = %s
+            """,
+            (data.session_id,)
+        )
+        sess = cursor.fetchone()
+        if sess:
+            cursor.execute(
+                "INSERT INTO course_enrollments (user_id, course_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (user["user_id"], sess["course_id"])
+            )
+            # Guarantee 0.0m distance check-in for the session creator (Class Rep)
+            if sess["created_by"] == user["user_id"] and sess["center_lat"] is not None and sess["center_lng"] is not None:
+                data.latitude = float(sess["center_lat"])
+                data.longitude = float(sess["center_lng"])
+
+        cursor.execute(
             "SELECT * FROM mark_attendance_atomic(%s, %s, %s, %s, %s)",
             (data.session_id, user["user_id"], data.latitude, data.longitude, user_agent)
         )

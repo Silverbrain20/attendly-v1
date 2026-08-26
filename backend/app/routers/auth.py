@@ -403,3 +403,23 @@ def update_profile(request: Request, data: UpdateProfile, user: dict = Depends(g
         "message": "Profile updated successfully",
         "user": dict(updated)
     }
+
+
+@router.delete("/account")
+@limiter.limit("5/minute")
+def delete_account(request: Request, user: dict = Depends(get_current_user)):
+    user_id = user["user_id"]
+    with db.get_cursor(commit=True) as cursor:
+        cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="User account not found")
+
+        cursor.execute("UPDATE invite_codes SET used_by = NULL WHERE used_by = %s", (user_id,))
+        cursor.execute("DELETE FROM manual_overrides WHERE student_id = %s OR overridden_by = %s", (user_id, user_id))
+        cursor.execute("DELETE FROM attendance_records WHERE student_id = %s", (user_id,))
+        cursor.execute("DELETE FROM attendance_sessions WHERE created_by = %s", (user_id,))
+        cursor.execute("DELETE FROM course_enrollments WHERE user_id = %s", (user_id,))
+        cursor.execute("DELETE FROM courses WHERE created_by = %s", (user_id,))
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+    return {"status": "success", "message": "Account permanently deleted"}

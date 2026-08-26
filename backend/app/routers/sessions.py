@@ -176,3 +176,24 @@ def get_session_qr(session_id: str, user: dict = Depends(get_current_user)):
     qr_data_url = generate_qr_code_data_url(session_id)
     return {"status": "success", "qr_code_image": qr_data_url}
 
+
+@router.get("/history/all")
+def get_all_session_history(user: dict = Depends(get_class_rep_user)):
+    with db.get_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT s.id, s.course_id, s.start_time, s.end_time, s.ended_at, s.geofence_radius_m, s.is_flagged,
+                   c.course_code, c.course_title,
+                   (SELECT COUNT(*) FROM attendance_records ar WHERE ar.session_id = s.id) as present_count,
+                   (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = s.course_id) as total_enrolled,
+                   (SELECT COUNT(*) FROM manual_overrides mo WHERE mo.session_id = s.id) as override_count
+            FROM attendance_sessions s
+            JOIN courses c ON s.course_id = c.id
+            WHERE c.created_by = %s OR s.created_by = %s
+            ORDER BY s.start_time DESC
+            """,
+            (user["user_id"], user["user_id"])
+        )
+        sessions = cursor.fetchall()
+    return {"status": "success", "data": sessions}
+

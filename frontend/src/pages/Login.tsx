@@ -13,6 +13,16 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [success, setSuccess] = useState('');
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('deleted') === 'true') {
+      setSuccess('Your account and all associated data have been permanently deleted.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -45,6 +55,13 @@ const Login: React.FC = () => {
             <h2 style={{ marginBottom: '0.25rem' }}>Welcome back</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>Sign in to your Attendly account</p>
           </div>
+
+          {/* Success Alert */}
+          {success && (
+            <div className="alert alert-success">
+              <span>{success}</span>
+            </div>
+          )}
 
           {/* Error Alert */}
           {error && (
