@@ -1,10 +1,26 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from app.config.settings import settings
 from app.utils.limiter import limiter
 from app.routers import auth, courses, sessions, attendance, overrides, export
+
+class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_body_bytes: int = 1_048_576): # 1MB Limit
+        super().__init__(app)
+        self.max_body_bytes = max_body_bytes
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length:
+            if int(content_length) > self.max_body_bytes:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail="Payload too large. Maximum allowed request size is 1MB."
+                )
+        return await call_next(request)
 
 app = FastAPI(
     title="Attendly API",
@@ -12,11 +28,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Rate Limiting configuration
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS configuration
+app.add_middleware(RequestBodyLimitMiddleware, max_body_bytes=1_048_576)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -25,7 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
 app.include_router(auth.router)
 app.include_router(courses.router)
 app.include_router(sessions.router)

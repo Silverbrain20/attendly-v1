@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest, getDeviceFingerprint } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, User, Mail, Phone, Lock, AlertCircle, FileText } from 'lucide-react';
+import { User, Mail, Phone, Lock, AlertCircle, FileText } from 'lucide-react';
+import Logo from '../components/Logo';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -52,8 +53,8 @@ const Register: React.FC = () => {
         <div className="card">
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div className="icon-circle icon-circle-primary" style={{ margin: '0 auto 1rem' }}>
-              <UserPlus size={24} />
+            <div style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center' }}>
+              <Logo size="lg" animatePulse />
             </div>
             <h2 style={{ marginBottom: '0.25rem' }}>Create your account</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>Sign up once to access Attendly</p>

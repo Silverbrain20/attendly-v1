@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from app.config.database import db
 from app.schemas.validators import (
     StudentRegister, StudentLogin, VerifyEmail, VerifyDevice,
-    ForgotPassword, ResetPassword
+    ForgotPassword, ResetPassword, UpdateProfile
 )
 from app.utils.crypto import (
     hash_password, verify_password, generate_otp, create_access_token,
@@ -19,10 +19,11 @@ import json
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
+
 @router.post("/register")
-def register(data: StudentRegister):
+@limiter.limit("5/15minutes")
+def register(request: Request, data: StudentRegister):
     with db.get_cursor(commit=True) as cursor:
-        # Check uniqueness
         cursor.execute(
             "SELECT id FROM users WHERE email = %s OR matric_number = %s OR phone_number = %s",
             (data.email, data.matric_number, data.phone_number)
@@ -36,7 +37,7 @@ def register(data: StudentRegister):
 
         cursor.execute(
             """
-            INSERT INTO users (email, password_hash, full_name, matric_number, phone_number, 
+            INSERT INTO users (email, password_hash, full_name, matric_number, phone_number,
                                device_fingerprint, email_verification_otp, email_verification_expires)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, role, is_email_verified
@@ -47,19 +48,16 @@ def register(data: StudentRegister):
         )
         new_user = cursor.fetchone()
 
-    # Send verification OTP
     send_verification_email(data.email, data.full_name, email_otp)
 
-    # Issue access/refresh tokens
     user_payload = {"user_id": new_user["id"], "role": new_user["role"], "token_version": 1}
     access_token = create_access_token(user_payload)
     refresh_token = create_refresh_token(user_payload)
-    refresh_hash = hash_token(refresh_token)
 
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
             "UPDATE users SET refresh_token_hash = %s WHERE id = %s",
-            (refresh_hash, new_user["id"])
+            (hash_token(refresh_token), new_user["id"])
         )
 
     return {
@@ -77,55 +75,38 @@ def register(data: StudentRegister):
         }
     }
 
+
 @router.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit("5/15minutes")
 def login(request: Request, data: StudentLogin):
     with db.get_cursor(commit=True) as cursor:
-        cursor.execute(
-            "SELECT * FROM users WHERE matric_number = %s",
-            (data.matric_number,)
-        )
+        cursor.execute("SELECT * FROM users WHERE matric_number = %s", (data.matric_number,))
         user = cursor.fetchone()
 
         if not user or not verify_password(data.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Invalid matric number or password")
 
-        # Device fingerprint matching
         stored_fp = user["device_fingerprint"]
         if isinstance(stored_fp, str):
             stored_fp = json.loads(stored_fp)
 
-        is_fp_match = check_fingerprint_match(stored_fp, data.device_fingerprint)
-
-        if not is_fp_match:
-            # Device mismatch: generate device OTP, do not login yet
+        if not check_fingerprint_match(stored_fp, data.device_fingerprint):
             device_otp = generate_otp()
             otp_expiry = datetime.utcnow() + timedelta(minutes=15)
-            
             cursor.execute(
-                """
-                UPDATE users 
-                SET device_verification_otp = %s, device_verification_expires = %s 
-                WHERE id = %s
-                """,
+                "UPDATE users SET device_verification_otp = %s, device_verification_expires = %s WHERE id = %s",
                 (device_otp, otp_expiry, user["id"])
             )
-            
             send_device_verification_email(user["email"], user["full_name"], device_otp)
-            return {
-                "status": "needs_device_verification",
-                "email": user["email"]
-            }
+            return {"status": "needs_device_verification", "email": user["email"]}
 
-        # Successful login
         user_payload = {"user_id": user["id"], "role": user["role"], "token_version": user["token_version"]}
         access_token = create_access_token(user_payload)
         refresh_token = create_refresh_token(user_payload)
-        refresh_hash = hash_token(refresh_token)
 
         cursor.execute(
             "UPDATE users SET refresh_token_hash = %s WHERE id = %s",
-            (refresh_hash, user["id"])
+            (hash_token(refresh_token), user["id"])
         )
 
         return {
@@ -143,13 +124,12 @@ def login(request: Request, data: StudentLogin):
             }
         }
 
+
 @router.post("/verify-email")
-def verify_email(data: VerifyEmail):
+@limiter.limit("5/15minutes")
+def verify_email(request: Request, data: VerifyEmail):
     with db.get_cursor(commit=True) as cursor:
-        cursor.execute(
-            "SELECT * FROM users WHERE email = %s",
-            (data.email,)
-        )
+        cursor.execute("SELECT * FROM users WHERE email = %s", (data.email,))
         user = cursor.fetchone()
 
         if not user:
@@ -171,13 +151,12 @@ def verify_email(data: VerifyEmail):
 
     return {"status": "success", "message": "Email verified successfully"}
 
+
 @router.post("/verify-device")
-def verify_device(data: VerifyDevice):
+@limiter.limit("5/15minutes")
+def verify_device(request: Request, data: VerifyDevice):
     with db.get_cursor(commit=True) as cursor:
-        cursor.execute(
-            "SELECT * FROM users WHERE email = %s",
-            (data.email,)
-        )
+        cursor.execute("SELECT * FROM users WHERE email = %s", (data.email,))
         user = cursor.fetchone()
 
         if not user:
@@ -189,11 +168,10 @@ def verify_device(data: VerifyDevice):
         if user["device_verification_otp"] != data.otp:
             raise HTTPException(status_code=400, detail="Invalid verification code")
 
-        # Update device fingerprint to current one, clear verification fields
         cursor.execute(
             """
-            UPDATE users 
-            SET device_fingerprint = %s, device_verification_otp = NULL, device_verification_expires = NULL 
+            UPDATE users
+            SET device_fingerprint = %s, device_verification_otp = NULL, device_verification_expires = NULL
             WHERE id = %s
             """,
             (json.dumps(data.device_fingerprint), user["id"])
@@ -202,11 +180,10 @@ def verify_device(data: VerifyDevice):
         user_payload = {"user_id": user["id"], "role": user["role"], "token_version": user["token_version"]}
         access_token = create_access_token(user_payload)
         refresh_token = create_refresh_token(user_payload)
-        refresh_hash = hash_token(refresh_token)
 
         cursor.execute(
             "UPDATE users SET refresh_token_hash = %s WHERE id = %s",
-            (refresh_hash, user["id"])
+            (hash_token(refresh_token), user["id"])
         )
 
     return {
@@ -224,8 +201,10 @@ def verify_device(data: VerifyDevice):
         }
     }
 
+
 @router.post("/forgot-password")
-def forgot_password(data: ForgotPassword):
+@limiter.limit("5/15minutes")
+def forgot_password(request: Request, data: ForgotPassword):
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
             "SELECT * FROM users WHERE matric_number = %s AND email = %s",
@@ -240,7 +219,7 @@ def forgot_password(data: ForgotPassword):
             raise HTTPException(status_code=400, detail="Email address must be verified before password reset is available")
 
         reset_otp = generate_otp()
-        otp_expiry = datetime.utcnow() + timedelta(minutes=10) # expires in 10 minutes
+        otp_expiry = datetime.utcnow() + timedelta(minutes=10)
 
         cursor.execute(
             "UPDATE users SET password_reset_otp = %s, password_reset_expires = %s WHERE id = %s",
@@ -250,13 +229,12 @@ def forgot_password(data: ForgotPassword):
     send_reset_otp_email(data.email, user["full_name"], reset_otp)
     return {"status": "success", "message": "Password reset code sent to your email"}
 
+
 @router.post("/reset-password")
-def reset_password(data: ResetPassword):
+@limiter.limit("5/15minutes")
+def reset_password(request: Request, data: ResetPassword):
     with db.get_cursor(commit=True) as cursor:
-        cursor.execute(
-            "SELECT * FROM users WHERE email = %s",
-            (data.email,)
-        )
+        cursor.execute("SELECT * FROM users WHERE email = %s", (data.email,))
         user = cursor.fetchone()
 
         if not user:
@@ -268,28 +246,26 @@ def reset_password(data: ResetPassword):
         if user["password_reset_otp"] != data.otp:
             raise HTTPException(status_code=400, detail="Invalid reset code")
 
-        new_pwd_hash = hash_password(data.new_password)
-
-        # Invalidate all tokens: increment token_version and clear refresh token hash
         cursor.execute(
             """
-            UPDATE users 
+            UPDATE users
             SET password_hash = %s, token_version = token_version + 1, refresh_token_hash = NULL,
-                password_reset_otp = NULL, password_reset_expires = NULL 
+                password_reset_otp = NULL, password_reset_expires = NULL
             WHERE id = %s
             """,
-            (new_pwd_hash, user["id"])
+            (hash_password(data.new_password), user["id"])
         )
 
     return {"status": "success", "message": "Password updated successfully"}
 
+
 @router.post("/refresh")
+@limiter.limit("5/15minutes")
 def refresh(request: Request):
-    # Retrieve refresh token from Authorization header or body
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Refresh token required")
-    
+
     refresh_token = auth_header.split(" ")[1]
     from app.utils.crypto import decode_token
     payload = decode_token(refresh_token, "refresh")
@@ -300,23 +276,20 @@ def refresh(request: Request):
     with db.get_cursor(commit=True) as cursor:
         cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
-        
+
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        refresh_hash = hash_token(refresh_token)
-        if user["refresh_token_hash"] != refresh_hash:
+        if user["refresh_token_hash"] != hash_token(refresh_token):
             raise HTTPException(status_code=401, detail="Refresh token revoked or reused")
 
-        # Issue new token pair
         user_payload = {"user_id": user["id"], "role": user["role"], "token_version": user["token_version"]}
         access_token = create_access_token(user_payload)
         new_refresh_token = create_refresh_token(user_payload)
-        new_refresh_hash = hash_token(new_refresh_token)
 
         cursor.execute(
             "UPDATE users SET refresh_token_hash = %s WHERE id = %s",
-            (new_refresh_hash, user["id"])
+            (hash_token(new_refresh_token), user["id"])
         )
 
     return {
@@ -325,8 +298,10 @@ def refresh(request: Request):
         "refresh_token": new_refresh_token
     }
 
+
 @router.get("/me")
-def get_me(user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def get_me(request: Request, user: dict = Depends(get_current_user)):
     with db.get_cursor() as cursor:
         cursor.execute(
             "SELECT id, email, full_name, matric_number, phone_number, role, is_email_verified, device_fingerprint, token_version FROM users WHERE id = %s",
@@ -335,9 +310,67 @@ def get_me(user: dict = Depends(get_current_user)):
         db_user = cursor.fetchone()
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        # Ensure token version is valid
+
         if db_user["token_version"] != user.get("token_version"):
             raise HTTPException(status_code=401, detail="Token version mismatch. Please re-authenticate.")
-            
+
         return {"status": "success", "user": db_user}
+
+
+@router.put("/profile")
+@limiter.limit("10/minute")
+def update_profile(request: Request, data: UpdateProfile, user: dict = Depends(get_current_user)):
+    with db.get_cursor(commit=True) as cursor:
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user["user_id"],))
+        db_user = cursor.fetchone()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if data.new_password:
+            if not data.current_password:
+                raise HTTPException(status_code=400, detail="Current password is required to set a new password")
+            if not verify_password(data.current_password, db_user["password_hash"]):
+                raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+        if data.phone_number and data.phone_number != db_user["phone_number"]:
+            cursor.execute("SELECT id FROM users WHERE phone_number = %s AND id != %s", (data.phone_number, user["user_id"]))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Phone number already in use")
+
+        if data.email and data.email != db_user["email"]:
+            cursor.execute("SELECT id FROM users WHERE email = %s AND id != %s", (data.email, user["user_id"]))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Email already in use")
+
+        fields = []
+        values = []
+
+        if data.full_name:
+            fields.append("full_name = %s")
+            values.append(data.full_name)
+        if data.phone_number:
+            fields.append("phone_number = %s")
+            values.append(data.phone_number)
+        if data.email and data.email != db_user["email"]:
+            fields.append("email = %s")
+            fields.append("is_email_verified = FALSE")
+            values.append(data.email)
+        if data.new_password:
+            fields.append("password_hash = %s")
+            values.append(hash_password(data.new_password))
+
+        if not fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        values.append(user["user_id"])
+        cursor.execute(
+            f"UPDATE users SET {', '.join(fields)} WHERE id = %s RETURNING id, email, full_name, matric_number, phone_number, role, is_email_verified",
+            tuple(values)
+        )
+        updated = cursor.fetchone()
+
+    return {
+        "status": "success",
+        "message": "Profile updated successfully",
+        "user": dict(updated)
+    }

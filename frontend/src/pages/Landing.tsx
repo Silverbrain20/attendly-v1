@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MapPin, Shield, Clock, ArrowRight, CheckCircle, Sparkles } from 'lucide-react';
+import Logo from '../components/Logo';
 
 const phrases = [
   'verified by location.',
@@ -53,9 +54,8 @@ const Landing: React.FC = () => {
       {/* Navigation */}
       <nav className="nav">
         <div className="nav-inner">
-          <Link to="/" className="nav-logo">
-            <MapPin size={22} />
-            Attendly
+          <Link to="/" className="nav-logo" style={{ textDecoration: 'none' }}>
+            <Logo showText size="sm" />
           </Link>
           <div className="nav-actions">
             {user ? (

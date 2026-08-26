@@ -8,7 +8,7 @@ if current_dir not in sys.path:
 
 from app.config.database import db
 
-def promote_user_to_admin(identifier=None):
+def promote_user_to_admin(identifier=None, role="class_rep"):
     with db.get_cursor(commit=True) as cursor:
         if not identifier:
             # List current users
@@ -19,10 +19,14 @@ def promote_user_to_admin(identifier=None):
                 print("No registered users found.")
             for u in users:
                 print(f"Name: {u['full_name']} | Email: {u['email']} | Matric: {u['matric_number']} | Role: {u['role']}")
-            print("\nTo promote a user, run: python make_admin.py <email_or_matric>")
+            print("\nUsage: python make_admin.py <email_or_matric> [class_rep|student]")
             return
 
         identifier = identifier.strip()
+        role = role.strip().lower()
+        if role not in ("class_rep", "student"):
+            role = "class_rep"
+
         cursor.execute(
             "SELECT id, email, full_name, role FROM users WHERE email = %s OR matric_number = %s",
             (identifier, identifier)
@@ -34,12 +38,14 @@ def promote_user_to_admin(identifier=None):
             return
 
         cursor.execute(
-            "UPDATE users SET role = 'class_rep' WHERE id = %s",
-            (user["id"],)
+            "UPDATE users SET role = %s WHERE id = %s",
+            (role, user["id"])
         )
-        print(f"SUCCESS: Promoted {user['full_name']} ({user['email']}) to Class Representative (class_rep / admin) role!")
-        print("Note: Please re-login to activate the admin session.")
+        print(f"SUCCESS: Updated {user['full_name']} ({user['email']}) to '{role}' role!")
+        print("Note: Please re-login to activate the session.")
 
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else None
-    promote_user_to_admin(target)
+    role_arg = sys.argv[2] if len(sys.argv) > 2 else "class_rep"
+    promote_user_to_admin(target, role_arg)
+

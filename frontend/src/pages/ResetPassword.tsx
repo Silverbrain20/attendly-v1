@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest } from '../utils/api';
-import { KeyRound, AlertCircle, CheckCircle, Lock, Mail, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle, Lock, Mail, FileText } from 'lucide-react';
+import Logo from '../components/Logo';
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ const ResetPassword: React.FC = () => {
 
     try {
       const res = await apiRequest('POST', '/api/auth/reset-password', {
-        email,
+        matric_number: matric,
         otp,
         new_password: newPassword
       }, true);
@@ -76,8 +77,8 @@ const ResetPassword: React.FC = () => {
         <div className="card">
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div className="icon-circle icon-circle-primary" style={{ margin: '0 auto 1rem' }}>
-              <KeyRound size={24} />
+            <div style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center' }}>
+              <Logo size="lg" animatePulse />
             </div>
             <h2 style={{ marginBottom: '0.25rem' }}>Reset password</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>

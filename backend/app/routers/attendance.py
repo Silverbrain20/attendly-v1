@@ -5,10 +5,11 @@ from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
 
+
 @router.post("/mark")
 def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends(get_current_user)):
     user_agent = request.headers.get("User-Agent", "Unknown")
-    
+
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
             "SELECT * FROM mark_attendance_atomic(%s, %s, %s, %s, %s)",
@@ -25,10 +26,9 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
     return {
         "status": "success",
         "message": res["message"],
-        "data": {
-            "distance_meters": res["distance_m"]
-        }
+        "data": {"distance_meters": res["distance_m"]}
     }
+
 
 @router.get("/me")
 def my_attendance_history(user: dict = Depends(get_current_user)):
@@ -48,6 +48,7 @@ def my_attendance_history(user: dict = Depends(get_current_user)):
         records = cursor.fetchall()
     return {"status": "success", "data": records}
 
+
 @router.get("/session/{session_id}")
 def get_session_attendance(session_id: str, user: dict = Depends(get_current_user)):
     with db.get_cursor() as cursor:
@@ -65,11 +66,10 @@ def get_session_attendance(session_id: str, user: dict = Depends(get_current_use
         records = cursor.fetchall()
     return {"status": "success", "data": records}
 
+
 @router.get("/my-summary")
 def get_my_summary(user: dict = Depends(get_current_user)):
-    # Aggregated metrics for total classes, absences, attendance %
     with db.get_cursor() as cursor:
-        # Get all enrollments
         cursor.execute(
             """
             SELECT ce.course_id, c.course_code, c.course_title
@@ -83,14 +83,12 @@ def get_my_summary(user: dict = Depends(get_current_user)):
 
         summary_data = []
         for course in enrollments:
-            # Count total sessions for this course
             cursor.execute(
                 "SELECT COUNT(*) as total FROM attendance_sessions WHERE course_id = %s AND (ended_at IS NOT NULL OR end_time < NOW())",
                 (course["course_id"],)
             )
             total_sessions = cursor.fetchone()["total"]
 
-            # Count attended sessions for this course
             cursor.execute(
                 """
                 SELECT COUNT(*) as attended FROM attendance_records ar
@@ -101,10 +99,6 @@ def get_my_summary(user: dict = Depends(get_current_user)):
             )
             attended = cursor.fetchone()["attended"]
 
-            absences = max(0, total_sessions - attended)
-            attendance_pct = round((attended / total_sessions * 100), 1) if total_sessions > 0 else 100.0
-
-            # Get manual overrides for this course
             cursor.execute(
                 """
                 SELECT COUNT(*) as overrides FROM manual_overrides mo
@@ -114,6 +108,9 @@ def get_my_summary(user: dict = Depends(get_current_user)):
                 (course["course_id"], user["user_id"])
             )
             overrides_count = cursor.fetchone()["overrides"]
+
+            absences = max(0, total_sessions - attended)
+            attendance_pct = round((attended / total_sessions * 100), 1) if total_sessions > 0 else 100.0
 
             summary_data.append({
                 "course_id": course["course_id"],

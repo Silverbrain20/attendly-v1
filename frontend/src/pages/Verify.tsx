@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { apiRequest, getDeviceFingerprint } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
+import Logo from '../components/Logo';
 
 const Verify: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -59,8 +60,8 @@ const Verify: React.FC = () => {
       <div className="auth-card animate-slideUp">
         <div className="card" style={{ textAlign: 'center' }}>
           {/* Icon */}
-          <div className="icon-circle icon-circle-primary" style={{ margin: '0 auto 1.25rem', width: '56px', height: '56px' }}>
-            <ShieldCheck size={28} />
+          <div style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center' }}>
+            <Logo size="lg" animatePulse />
           </div>
 
           <h2 style={{ marginBottom: '0.375rem' }}>

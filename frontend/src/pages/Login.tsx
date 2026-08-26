@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Lock, User, AlertCircle } from 'lucide-react';
+import { Lock, User, AlertCircle } from 'lucide-react';
+import Logo from '../components/Logo';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
@@ -38,8 +39,8 @@ const Login: React.FC = () => {
         <div className="card">
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div className="icon-circle icon-circle-primary" style={{ margin: '0 auto 1rem' }}>
-              <MapPin size={24} />
+            <div style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center' }}>
+              <Logo size="lg" animatePulse />
             </div>
             <h2 style={{ marginBottom: '0.25rem' }}>Welcome back</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>Sign in to your Attendly account</p>

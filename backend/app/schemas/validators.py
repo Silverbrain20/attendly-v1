@@ -1,64 +1,76 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Dict
-from datetime import datetime
 
-# --- Auth Schemas ---
+
 class StudentRegister(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    full_name: str = Field(..., min_length=2)
-    matric_number: str = Field(..., min_length=3)
-    phone_number: str = Field(..., min_length=7)
+    email: EmailStr = Field(..., max_length=254)
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: str = Field(..., min_length=2, max_length=100)
+    matric_number: str = Field(..., min_length=3, max_length=30)
+    phone_number: str = Field(..., min_length=7, max_length=20)
     device_fingerprint: Optional[Dict] = None
 
+
 class StudentLogin(BaseModel):
-    matric_number: str
-    password: str
+    matric_number: str = Field(..., max_length=30)
+    password: str = Field(..., max_length=128)
     device_fingerprint: Dict
+
 
 class VerifyEmail(BaseModel):
-    email: EmailStr
-    otp: str
+    email: EmailStr = Field(..., max_length=254)
+    otp: str = Field(..., min_length=6, max_length=8)
+
 
 class VerifyDevice(BaseModel):
-    email: EmailStr
-    otp: str
+    email: EmailStr = Field(..., max_length=254)
+    otp: str = Field(..., min_length=6, max_length=8)
     device_fingerprint: Dict
 
+
 class ForgotPassword(BaseModel):
-    matric_number: str
-    email: EmailStr
+    matric_number: str = Field(..., max_length=30)
+    email: EmailStr = Field(..., max_length=254)
+
 
 class ResetPassword(BaseModel):
-    email: EmailStr
-    otp: str
-    new_password: str = Field(..., min_length=8)
+    email: EmailStr = Field(..., max_length=254)
+    otp: str = Field(..., min_length=6, max_length=8)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
-# --- Course Schemas ---
+
 class CourseCreate(BaseModel):
     course_code: str = Field(..., min_length=3, max_length=20)
     course_title: str = Field(..., min_length=3, max_length=150)
 
-# --- Session Schemas ---
+
 class SessionCreate(BaseModel):
-    course_id: str
+    course_id: str = Field(..., max_length=50)
     latitude: float
     longitude: float
-    geofence_radius_m: Optional[int] = 100
-    duration_minutes: int = Field(120, ge=15, le=720) # Default 2 hours
+    geofence_radius_m: Optional[int] = Field(100, ge=10, le=5000)
+    duration_minutes: int = Field(120, ge=15, le=720)
 
-# --- Attendance Schemas ---
+
 class AttendanceMark(BaseModel):
-    session_id: str
+    session_id: str = Field(..., max_length=50)
     latitude: float
     longitude: float
 
-# --- Override Schemas ---
+
 class OverrideCreate(BaseModel):
-    session_id: str
-    student_id: str
+    session_id: str = Field(..., max_length=50)
+    student_id: str = Field(..., max_length=50)
     reason: str = Field(..., min_length=10, max_length=300)
 
-# --- Invite Code Schemas ---
+
 class RedeemInvite(BaseModel):
-    code: str
+    code: str = Field(..., min_length=4, max_length=20)
+
+
+class UpdateProfile(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=2, max_length=100)
+    phone_number: Optional[str] = Field(None, min_length=7, max_length=20)
+    email: Optional[EmailStr] = Field(None, max_length=254)
+    current_password: Optional[str] = Field(None, max_length=128)
+    new_password: Optional[str] = Field(None, min_length=8, max_length=128)

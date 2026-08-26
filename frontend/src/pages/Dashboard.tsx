@@ -4,49 +4,52 @@ import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../utils/api';
 import {
   MapPin, AlertTriangle, Plus, Download, BookOpen, BarChart3,
-  Radio, Shield, LogOut, Key, Clock, Inbox
+  Radio, Shield, LogOut, Clock, Inbox, UserCog, X, Check, Copy, Key
 } from 'lucide-react';
-
+import Logo from '../components/Logo';
 
 const Dashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
-  
+
   const [courses, setCourses] = useState<any[]>([]);
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
-  
-  // Student Specific
+
   const [summaryData, setSummaryData] = useState<any[]>([]);
   const [myActiveSessions, setMyActiveSessions] = useState<any[]>([]);
 
-  // Class Rep Specific
   const [activeSession, setActiveSession] = useState<any>(null);
   const [sessionQr, setSessionQr] = useState<string | null>(null);
-  
-  // Create Course Form
+
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [newCourseCode, setNewCourseCode] = useState('');
   const [newCourseTitle, setNewCourseTitle] = useState('');
 
-  // Create Session Form
   const [showSessionForm, setShowSessionForm] = useState(false);
   const [sessionRadius, setSessionRadius] = useState(100);
   const [sessionDuration, setSessionDuration] = useState(120);
 
-  // Invite Code Management
-  const [showInviteForm, setShowInviteForm] = useState(false);
-  const [inviteCode, setInviteCode] = useState('');
-  const [inviteCodeError, setInviteCodeError] = useState('');
-  const [inviteCodeSuccess, setInviteCodeSuccess] = useState('');
-
-  // Manual Overrides State
   const [overrideStudentId, setOverrideStudentId] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideRemaining, setOverrideRemaining] = useState(10);
   const [overrideCount, setOverrideCount] = useState(0);
   const [courseStudents, setCourseStudents] = useState<any[]>([]);
   const [sessionOverrides, setSessionOverrides] = useState<any[]>([]);
+
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
+
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileFullName, setProfileFullName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileCurrentPwd, setProfileCurrentPwd] = useState('');
+  const [profileNewPwd, setProfileNewPwd] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState('');
@@ -65,19 +68,19 @@ const Dashboard: React.FC = () => {
       setCourses(coursesRes.data || []);
 
       if (user?.role === 'student') {
-        const summaryRes = await apiRequest('GET', '/api/attendance/my-summary');
+        const [summaryRes, allRes, activeSessRes] = await Promise.all([
+          apiRequest('GET', '/api/attendance/my-summary'),
+          apiRequest('GET', '/api/courses/all'),
+          apiRequest('GET', '/api/sessions/my-active'),
+        ]);
         setSummaryData(summaryRes.data || []);
-        
-        const allRes = await apiRequest('GET', '/api/courses/all');
         setAllCourses(allRes.data || []);
-
-        const activeSessRes = await apiRequest('GET', '/api/sessions/my-active');
         setMyActiveSessions(activeSessRes.data || []);
       } else {
-        if (coursesRes.data && coursesRes.data.length > 0) {
-          const firstCourse = coursesRes.data[0].id;
-          setSelectedCourse(firstCourse);
-          await loadSessionAndOverrides(firstCourse);
+        if (coursesRes.data?.length > 0) {
+          const firstCourseId = coursesRes.data[0].id;
+          setSelectedCourse(firstCourseId);
+          await loadSessionAndOverrides(firstCourseId);
         }
       }
     } catch (e: any) {
@@ -94,21 +97,20 @@ const Dashboard: React.FC = () => {
       setActiveSession(session);
 
       if (session) {
-        if (session.qr_code_image) {
-          setSessionQr(session.qr_code_image);
-        } else {
-          const qrRes = await apiRequest('GET', `/api/sessions/${session.id}/qr`);
-          setSessionQr(qrRes.qr_code_image);
-        }
+        const qr = session.qr_code_image
+          ? session.qr_code_image
+          : (await apiRequest('GET', `/api/sessions/${session.id}/qr`)).qr_code_image;
+        setSessionQr(qr);
 
-        const countRes = await apiRequest('GET', `/api/overrides/session/${session.id}/count`);
+        const [countRes, studentsRes, overridesRes] = await Promise.all([
+          apiRequest('GET', `/api/overrides/session/${session.id}/count`),
+          apiRequest('GET', `/api/courses/${courseId}/students`),
+          apiRequest('GET', `/api/overrides/session/${session.id}`),
+        ]);
+
         setOverrideCount(countRes.count);
         setOverrideRemaining(countRes.remaining);
-
-        const studentsRes = await apiRequest('GET', `/api/courses/${courseId}/students`);
         setCourseStudents(studentsRes.data || []);
-
-        const overridesRes = await apiRequest('GET', `/api/overrides/session/${session.id}`);
         setSessionOverrides(overridesRes.data || []);
       } else {
         setSessionQr(null);
@@ -116,10 +118,9 @@ const Dashboard: React.FC = () => {
         setCourseStudents([]);
       }
     } catch (e: any) {
-      console.error(e);
+      console.error('Failed to load session data:', e.message);
     }
   };
-
 
   const handleCourseChange = async (courseId: string) => {
     setSelectedCourse(courseId);
@@ -145,18 +146,17 @@ const Dashboard: React.FC = () => {
     try {
       const res = await apiRequest('POST', '/api/courses', {
         course_code: newCourseCode,
-        course_title: newCourseTitle
+        course_title: newCourseTitle,
       });
       if (res.status === 'success' && res.data) {
-        const createdCourse = res.data;
-        setActionSuccess(`Course ${createdCourse.course_code} created successfully!`);
+        setActionSuccess(`Course ${res.data.course_code} created successfully!`);
         setNewCourseCode('');
         setNewCourseTitle('');
         setShowCourseForm(false);
-        const updatedCourses = [...courses, createdCourse];
+        const updatedCourses = [...courses, res.data];
         setCourses(updatedCourses);
-        setSelectedCourse(createdCourse.id);
-        await loadSessionAndOverrides(createdCourse.id);
+        setSelectedCourse(res.data.id);
+        await loadSessionAndOverrides(res.data.id);
       }
     } catch (e: any) {
       setActionError(e.message || 'Course creation failed');
@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
     setActionSuccess('');
 
     if (!selectedCourse) {
-      setActionError('Please select or create a course first before launching a session.');
+      setActionError('Please select or create a course first.');
       return;
     }
 
@@ -178,44 +178,37 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    try {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const res = await apiRequest('POST', '/api/sessions', {
-              course_id: selectedCourse,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              geofence_radius_m: sessionRadius,
-              duration_minutes: sessionDuration
-            });
-            if (res.status === 'success' && res.data) {
-              setActionSuccess('Session started successfully!');
-              setShowSessionForm(false);
-              setActiveSession(res.data);
-              if (res.data.qr_code_image) {
-                setSessionQr(res.data.qr_code_image);
-              }
-              await loadSessionAndOverrides(selectedCourse);
-            }
-          } catch (err: any) {
-            setActionError(err.message || 'Session creation failed');
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const res = await apiRequest('POST', '/api/sessions', {
+            course_id: selectedCourse,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            geofence_radius_m: sessionRadius,
+            duration_minutes: sessionDuration,
+          });
+          if (res.status === 'success' && res.data) {
+            setActionSuccess('Session started successfully!');
+            setShowSessionForm(false);
+            setActiveSession(res.data);
+            if (res.data.qr_code_image) setSessionQr(res.data.qr_code_image);
+            await loadSessionAndOverrides(selectedCourse);
           }
-        },
-        (error) => {
-          setActionError(
-            error.code === error.PERMISSION_DENIED
-              ? 'Location permission denied. Please allow GPS location access in your browser to start a session.'
-              : 'Could not acquire GPS position. Please ensure location services are enabled.'
-          );
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } catch (e: any) {
-      setActionError(e.message || 'Failed to initialize session location');
-    }
+        } catch (err: any) {
+          setActionError(err.message || 'Session creation failed');
+        }
+      },
+      (error) => {
+        setActionError(
+          error.code === error.PERMISSION_DENIED
+            ? 'Location permission denied. Allow GPS access to start a session.'
+            : 'Could not acquire GPS position. Ensure location services are enabled.'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
-
 
   const handleEndSession = async () => {
     if (!activeSession) return;
@@ -239,7 +232,7 @@ const Dashboard: React.FC = () => {
       await apiRequest('POST', '/api/overrides', {
         session_id: activeSession.id,
         student_id: overrideStudentId,
-        reason: overrideReason
+        reason: overrideReason,
       });
       setActionSuccess('Manual override recorded successfully');
       setOverrideStudentId('');
@@ -262,22 +255,67 @@ const Dashboard: React.FC = () => {
       document.body.appendChild(a);
       a.click();
       a.remove();
-    } catch (e: any) {
+    } catch {
       setActionError('CSV export failed');
     }
   };
 
-  const handleRedeemInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setInviteCodeError('');
-    setInviteCodeSuccess('');
+  const handleGenerateInvite = async () => {
+    setCodeLoading(true);
+    setGeneratedCode('');
+    setCodeCopied(false);
     try {
-      const res = await apiRequest('POST', '/api/courses/redeem-invite', { code: inviteCode });
-      setInviteCodeSuccess(res.message);
-      setInviteCode('');
-      setTimeout(() => logout(), 2500);
+      const res = await apiRequest('POST', '/api/courses/generate-invite');
+      setGeneratedCode(res.data.code);
     } catch (e: any) {
-      setInviteCodeError(e.message || 'Code redemption failed');
+      setActionError(e.message || 'Failed to generate invite code');
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(generatedCode);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2500);
+  };
+
+  const handleOpenEditProfile = () => {
+    setProfileFullName(user?.full_name || '');
+    setProfilePhone(user?.phone_number || '');
+    setProfileEmail(user?.email || '');
+    setProfileCurrentPwd('');
+    setProfileNewPwd('');
+    setProfileError('');
+    setProfileSuccess('');
+    setShowEditProfile(true);
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+    setProfileLoading(true);
+    try {
+      const payload: any = {};
+      if (profileFullName && profileFullName !== user?.full_name) payload.full_name = profileFullName;
+      if (profilePhone && profilePhone !== user?.phone_number) payload.phone_number = profilePhone;
+      if (profileEmail && profileEmail !== user?.email) payload.email = profileEmail;
+      if (profileNewPwd) {
+        payload.new_password = profileNewPwd;
+        payload.current_password = profileCurrentPwd;
+      }
+      const res = await apiRequest('PUT', '/api/auth/profile', payload);
+      if (res.status === 'success') {
+        setProfileSuccess('Profile updated successfully!');
+        await refreshUser();
+        setProfileCurrentPwd('');
+        setProfileNewPwd('');
+      }
+    } catch (e: any) {
+      setProfileError(e.message || 'Profile update failed');
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -291,19 +329,17 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="animate-fadeIn" style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
-      {/* Top Nav */}
       <nav className="nav">
         <div className="nav-inner">
           <div className="nav-logo">
-            <MapPin size={20} />
-            Attendly
+            <Logo showText size="sm" />
           </div>
           <div className="nav-actions">
             <span className="badge badge-primary hide-mobile">
               {user?.role === 'class_rep' ? 'Class Rep' : 'Student'}
             </span>
-            <button onClick={() => setShowInviteForm(!showInviteForm)} className="btn btn-ghost btn-sm" title="Invite Code">
-              <Key size={18} />
+            <button onClick={handleOpenEditProfile} className="btn btn-ghost btn-sm" title="Edit Profile" id="edit-profile-btn">
+              <UserCog size={18} />
             </button>
             <button onClick={logout} className="btn btn-ghost btn-sm" title="Sign Out">
               <LogOut size={18} />
@@ -312,9 +348,7 @@ const Dashboard: React.FC = () => {
         </div>
       </nav>
 
-      {/* Page Content */}
       <div className="container" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-        {/* Welcome Header */}
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ marginBottom: '0.25rem' }}>
             {user?.role === 'class_rep' ? 'Manage Attendance' : 'My Attendance'}
@@ -322,46 +356,81 @@ const Dashboard: React.FC = () => {
           <p style={{ color: 'var(--text-muted)' }}>Welcome back, {user?.full_name}</p>
         </div>
 
-        {/* Invite Code Panel */}
-        {showInviteForm && (
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
-                <Key size={18} />
+        {showEditProfile && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.45)', display: 'flex', justifyContent: 'flex-end'
+          }} onClick={(e) => { if (e.target === e.currentTarget) setShowEditProfile(false); }}>
+            <div className="card animate-slideUp" style={{
+              width: '100%', maxWidth: '420px', height: '100vh', overflowY: 'auto',
+              borderRadius: '0', margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
+                    <UserCog size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.0625rem', margin: 0 }}>Edit Profile</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>Update your account details</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowEditProfile(false)} className="btn btn-ghost btn-sm">
+                  <X size={18} />
+                </button>
               </div>
-              <div>
-                <h3 style={{ fontSize: '1rem' }}>Class Representative Invite</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
-                  Redeem an invite code to become a class rep. You'll be logged out on success.
-                </p>
-              </div>
+
+              {profileError && <div className="alert alert-danger"><AlertTriangle size={16} /><span>{profileError}</span></div>}
+              {profileSuccess && <div className="alert alert-success"><Check size={16} /><span>{profileSuccess}</span></div>}
+
+              <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Matric Number</label>
+                  <input type="text" className="form-input" value={user?.matric_number || ''} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" htmlFor="profile-name">Full Name</label>
+                  <input id="profile-name" type="text" className="form-input" value={profileFullName}
+                    onChange={(e) => setProfileFullName(e.target.value)} placeholder="Your full name" />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" htmlFor="profile-phone">Phone Number</label>
+                  <input id="profile-phone" type="tel" className="form-input" value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)} placeholder="e.g. +2348012345678" />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" htmlFor="profile-email">Email Address</label>
+                  <input id="profile-email" type="email" className="form-input" value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)} placeholder="you@university.edu" />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginBottom: '0.75rem' }}>Change Password (optional)</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" htmlFor="profile-cur-pwd">Current Password</label>
+                      <input id="profile-cur-pwd" type="password" className="form-input" value={profileCurrentPwd}
+                        onChange={(e) => setProfileCurrentPwd(e.target.value)} placeholder="Required to change password" />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" htmlFor="profile-new-pwd">New Password</label>
+                      <input id="profile-new-pwd" type="password" className="form-input" value={profileNewPwd}
+                        onChange={(e) => setProfileNewPwd(e.target.value)} placeholder="Min. 8 characters" />
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary btn-full" disabled={profileLoading}>
+                  {profileLoading ? <div className="spinner spinner-sm spinner-white" /> : 'Save Changes'}
+                </button>
+              </form>
             </div>
-
-            {inviteCodeError && (
-              <div className="alert alert-danger"><span>{inviteCodeError}</span></div>
-            )}
-            {inviteCodeSuccess && (
-              <div className="alert alert-success"><span>{inviteCodeSuccess}</span></div>
-            )}
-
-            <form onSubmit={handleRedeemInvite} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                className="form-input"
-                style={{ flexGrow: 1, maxWidth: '280px' }}
-                placeholder="Enter invite code"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn btn-primary btn-sm">
-                Redeem
-              </button>
-            </form>
           </div>
         )}
 
-        {/* Global Messages */}
         {actionError && (
           <div className="alert alert-danger">
             <AlertTriangle size={18} style={{ flexShrink: 0 }} />
@@ -374,12 +443,8 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════
-                         STUDENT VIEW
-            ═══════════════════════════════════════════ */}
         {user?.role === 'student' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Enrollment */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
@@ -393,30 +458,21 @@ const Dashboard: React.FC = () => {
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                   <div style={{ flexGrow: 1, maxWidth: '350px' }}>
                     <label className="form-label" htmlFor="enroll-select">Select Course</label>
-                    <select
-                      id="enroll-select"
-                      className="form-select"
-                      onChange={(e) => setSelectedCourse(e.target.value)}
-                      value={selectedCourse}
-                    >
+                    <select id="enroll-select" className="form-select"
+                      onChange={(e) => setSelectedCourse(e.target.value)} value={selectedCourse}>
                       <option value="">Choose course</option>
                       {allCourses.map((c) => (
                         <option key={c.id} value={c.id}>{c.course_code} — {c.course_title}</option>
                       ))}
                     </select>
                   </div>
-                  <button
-                    disabled={!selectedCourse}
-                    onClick={() => handleEnroll(selectedCourse)}
-                    className="btn btn-primary"
-                  >
+                  <button disabled={!selectedCourse} onClick={() => handleEnroll(selectedCourse)} className="btn btn-primary">
                     Enroll
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Active Attendance Sessions */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
@@ -437,7 +493,7 @@ const Dashboard: React.FC = () => {
                       <div>
                         <h3 style={{ fontSize: '1.0625rem', marginBottom: '0.125rem' }}>{sess.course_code} — {sess.course_title}</h3>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
-                          Geofence radius: {sess.geofence_radius_m} meters
+                          Geofence radius: {sess.geofence_radius_m}m
                         </p>
                       </div>
                       <div>
@@ -446,11 +502,8 @@ const Dashboard: React.FC = () => {
                             ✓ Attendance Marked
                           </span>
                         ) : (
-                          <button
-                            onClick={() => navigate(`/attend/${sess.id}`)}
-                            className="btn btn-primary btn-sm"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
-                          >
+                          <button onClick={() => navigate(`/attend/${sess.id}`)} className="btn btn-primary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
                             <MapPin size={16} /> Mark Attendance
                           </button>
                         )}
@@ -460,8 +513,6 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
             </div>
-
-            {/* Attendance Summary */}
 
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
@@ -473,9 +524,7 @@ const Dashboard: React.FC = () => {
 
               {summaryData.length === 0 ? (
                 <div className="empty-state" style={{ padding: '2rem 0' }}>
-                  <div className="empty-state-icon">
-                    <Inbox size={28} />
-                  </div>
+                  <div className="empty-state-icon"><Inbox size={28} /></div>
                   <h3 style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '1rem' }}>No records yet</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Enroll in courses and mark attendance to see your stats.</p>
                 </div>
@@ -489,31 +538,27 @@ const Dashboard: React.FC = () => {
                           <h3 style={{ fontSize: '1rem' }}>{data.course_code}</h3>
                           <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>{data.course_title}</p>
                         </div>
-                        
+
                         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                           <div style={{ textAlign: 'center' }}>
                             <div className="stat-label">Attended</div>
                             <div className="stat-value" style={{ fontSize: '1.125rem' }}>{data.attended} / {data.total_classes}</div>
                           </div>
-                          
                           <div style={{ textAlign: 'center' }}>
                             <div className="stat-label">Absences</div>
                             <div className="stat-value" style={{ fontSize: '1.125rem', color: data.absences > 0 ? 'var(--warning)' : 'var(--text)' }}>
                               {data.absences}
                             </div>
                           </div>
-
                           <div style={{ textAlign: 'center' }}>
                             <div className="stat-label">Overrides</div>
                             <div className="stat-value" style={{ fontSize: '1.125rem' }}>{data.manual_overrides}</div>
                           </div>
-
                           <div style={{ textAlign: 'center' }}>
                             <div className="stat-label">Rate</div>
-                            <div className="stat-value" style={{
-                              fontSize: '1.125rem',
-                              color: isBelowTarget ? 'var(--danger)' : 'var(--success)'
-                            }}>{data.attendance_percentage}%</div>
+                            <div className="stat-value" style={{ fontSize: '1.125rem', color: isBelowTarget ? 'var(--danger)' : 'var(--success)' }}>
+                              {data.attendance_percentage}%
+                            </div>
                           </div>
                         </div>
 
@@ -531,12 +576,8 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════
-                        CLASS REP VIEW
-            ═══════════════════════════════════════════ */}
         {user?.role === 'class_rep' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Course & Session Management */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <h2 style={{ fontSize: '1.25rem' }}>Manage Course & Sessions</h2>
@@ -554,22 +595,16 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Course Selector */}
               <div className="form-group" style={{ maxWidth: '320px', marginBottom: showCourseForm || showSessionForm ? '1.5rem' : 0 }}>
                 <label className="form-label" htmlFor="course-select">Active Course</label>
-                <select
-                  id="course-select"
-                  className="form-select"
-                  value={selectedCourse}
-                  onChange={(e) => handleCourseChange(e.target.value)}
-                >
+                <select id="course-select" className="form-select" value={selectedCourse}
+                  onChange={(e) => handleCourseChange(e.target.value)}>
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>{c.course_code} — {c.course_title}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Add Course Form */}
               {showCourseForm && (
                 <form onSubmit={handleCreateCourse} style={{
                   padding: '1.25rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)',
@@ -581,27 +616,13 @@ const Dashboard: React.FC = () => {
                   <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 180px' }}>
                       <label className="form-label" htmlFor="new-code">Course Code</label>
-                      <input
-                        id="new-code"
-                        type="text"
-                        className="form-input"
-                        value={newCourseCode}
-                        onChange={(e) => setNewCourseCode(e.target.value)}
-                        placeholder="e.g. CSC301"
-                        required
-                      />
+                      <input id="new-code" type="text" className="form-input" value={newCourseCode}
+                        onChange={(e) => setNewCourseCode(e.target.value)} placeholder="e.g. CSC301" required />
                     </div>
                     <div style={{ flex: '2 1 260px' }}>
                       <label className="form-label" htmlFor="new-title">Course Title</label>
-                      <input
-                        id="new-title"
-                        type="text"
-                        className="form-input"
-                        value={newCourseTitle}
-                        onChange={(e) => setNewCourseTitle(e.target.value)}
-                        placeholder="e.g. Database Design"
-                        required
-                      />
+                      <input id="new-title" type="text" className="form-input" value={newCourseTitle}
+                        onChange={(e) => setNewCourseTitle(e.target.value)} placeholder="e.g. Database Design" required />
                     </div>
                   </div>
                   <button type="submit" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
@@ -610,7 +631,6 @@ const Dashboard: React.FC = () => {
                 </form>
               )}
 
-              {/* Start Session Form */}
               {showSessionForm && (
                 <form onSubmit={handleCreateSession} style={{
                   padding: '1.25rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)',
@@ -625,25 +645,13 @@ const Dashboard: React.FC = () => {
                   <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 180px' }}>
                       <label className="form-label" htmlFor="sess-radius">Geofence Radius (m)</label>
-                      <input
-                        id="sess-radius"
-                        type="number"
-                        className="form-input"
-                        value={sessionRadius}
-                        onChange={(e) => setSessionRadius(parseInt(e.target.value))}
-                        required
-                      />
+                      <input id="sess-radius" type="number" className="form-input" value={sessionRadius}
+                        onChange={(e) => setSessionRadius(parseInt(e.target.value))} required />
                     </div>
                     <div style={{ flex: '1 1 180px' }}>
                       <label className="form-label" htmlFor="sess-duration">Duration (minutes)</label>
-                      <input
-                        id="sess-duration"
-                        type="number"
-                        className="form-input"
-                        value={sessionDuration}
-                        onChange={(e) => setSessionDuration(parseInt(e.target.value))}
-                        required
-                      />
+                      <input id="sess-duration" type="number" className="form-input" value={sessionDuration}
+                        onChange={(e) => setSessionDuration(parseInt(e.target.value))} required />
                     </div>
                   </div>
                   <button type="submit" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
@@ -653,10 +661,44 @@ const Dashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Active Session Display */}
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
+                  <Key size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.0625rem', margin: 0 }}>Generate Invite Code</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+                    Share this code with a student to promote them to Class Rep
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button onClick={handleGenerateInvite} className="btn btn-secondary btn-sm" disabled={codeLoading}>
+                  {codeLoading ? <div className="spinner spinner-sm" /> : <><Plus size={16} /> Generate Code</>}
+                </button>
+
+                {generatedCode && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <code style={{
+                      background: 'var(--bg-subtle)', border: '1px solid var(--border)',
+                      padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)',
+                      fontFamily: 'monospace', fontSize: '1.0625rem', fontWeight: 700,
+                      letterSpacing: '0.1em', color: 'var(--primary)'
+                    }}>
+                      {generatedCode}
+                    </code>
+                    <button onClick={handleCopyCode} className="btn btn-ghost btn-sm" title="Copy code">
+                      {codeCopied ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {activeSession ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                {/* QR Code */}
                 <div className="card" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <div className="badge badge-success" style={{ marginBottom: '1rem' }}>
                     <Radio size={13} /> Session Active
@@ -682,7 +724,6 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Manual Override */}
                 <div className="card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.375rem' }}>
                     <div className="icon-circle icon-circle-warning" style={{ width: '36px', height: '36px' }}>
@@ -694,7 +735,6 @@ const Dashboard: React.FC = () => {
                     Session gets flagged for review after 10 overrides.
                   </p>
 
-                  {/* Override Slots */}
                   <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     {Array.from({ length: 10 }).map((_, idx) => (
                       <div key={idx} className={`slot ${idx < overrideCount ? 'slot-filled' : 'slot-empty'}`}>
@@ -711,37 +751,22 @@ const Dashboard: React.FC = () => {
                     <form onSubmit={handleCreateOverride} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <div>
                         <label className="form-label" htmlFor="override-student">Student</label>
-                        <select
-                          id="override-student"
-                          className="form-select"
-                          value={overrideStudentId}
-                          onChange={(e) => setOverrideStudentId(e.target.value)}
-                          required
-                        >
+                        <select id="override-student" className="form-select" value={overrideStudentId}
+                          onChange={(e) => setOverrideStudentId(e.target.value)} required>
                           <option value="">Select student</option>
                           {courseStudents.map((s) => (
                             <option key={s.id} value={s.id}>{s.full_name} ({s.matric_number})</option>
                           ))}
                         </select>
                       </div>
-
                       <div>
                         <label className="form-label" htmlFor="override-reason">Reason</label>
-                        <input
-                          id="override-reason"
-                          type="text"
-                          className="form-input"
+                        <input id="override-reason" type="text" className="form-input"
                           placeholder="e.g. Device GPS calibration fault"
-                          value={overrideReason}
-                          onChange={(e) => setOverrideReason(e.target.value)}
-                          required
-                          minLength={10}
-                        />
+                          value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)}
+                          required minLength={10} />
                       </div>
-
-                      <button type="submit" className="btn btn-primary btn-full">
-                        Add Override
-                      </button>
+                      <button type="submit" className="btn btn-primary btn-full">Add Override</button>
                     </form>
                   ) : (
                     <div className="alert alert-danger" style={{ justifyContent: 'center', fontWeight: 600 }}>
@@ -750,7 +775,6 @@ const Dashboard: React.FC = () => {
                   )}
                 </div>
 
-                {/* Audit Log */}
                 <div className="card" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -790,12 +814,9 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* No Active Session */
               <div className="card">
                 <div className="empty-state">
-                  <div className="empty-state-icon">
-                    <Inbox size={28} />
-                  </div>
+                  <div className="empty-state-icon"><Inbox size={28} /></div>
                   <h3 style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '1rem', marginBottom: '0.25rem' }}>No active session</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
                     Select a course above and start a session to begin tracking attendance.

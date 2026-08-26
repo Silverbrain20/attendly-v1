@@ -1,3 +1,5 @@
+import secrets
+import string
 from fastapi import APIRouter, HTTPException, Depends
 from app.config.database import db
 from app.schemas.validators import CourseCreate, RedeemInvite
@@ -5,10 +7,10 @@ from app.middleware.auth import get_current_user, get_class_rep_user
 
 router = APIRouter(prefix="/api/courses", tags=["Courses"])
 
+
 @router.post("")
 def create_course(data: CourseCreate, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor(commit=True) as cursor:
-        # Check uniqueness of course code
         cursor.execute("SELECT id FROM courses WHERE course_code = %s", (data.course_code.upper(),))
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Course code already exists")
@@ -22,14 +24,14 @@ def create_course(data: CourseCreate, user: dict = Depends(get_class_rep_user)):
             (data.course_code.upper(), data.course_title, user["user_id"])
         )
         course = cursor.fetchone()
-        
-        # Auto enroll the course creator
+
         cursor.execute(
             "INSERT INTO course_enrollments (user_id, course_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
             (user["user_id"], course["id"])
         )
-        
+
     return {"status": "success", "data": course}
+
 
 @router.get("")
 def list_my_courses(user: dict = Depends(get_current_user)):
@@ -46,6 +48,7 @@ def list_my_courses(user: dict = Depends(get_current_user)):
         courses = cursor.fetchall()
     return {"status": "success", "data": courses}
 
+
 @router.get("/all")
 def list_all_courses(user: dict = Depends(get_current_user)):
     with db.get_cursor() as cursor:
@@ -53,18 +56,20 @@ def list_all_courses(user: dict = Depends(get_current_user)):
         courses = cursor.fetchall()
     return {"status": "success", "data": courses}
 
+
 @router.post("/enroll/{course_id}")
 def enroll(course_id: str, user: dict = Depends(get_current_user)):
     with db.get_cursor(commit=True) as cursor:
         cursor.execute("SELECT id FROM courses WHERE id = %s", (course_id,))
         if not cursor.fetchone():
-            raise HTTPException(status_code=44, detail="Course not found")
+            raise HTTPException(status_code=404, detail="Course not found")
 
         cursor.execute(
             "INSERT INTO course_enrollments (user_id, course_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
             (user["user_id"], course_id)
         )
     return {"status": "success", "message": "Enrolled successfully"}
+
 
 @router.get("/{course_id}/students")
 def list_course_students(course_id: str, user: dict = Depends(get_class_rep_user)):
@@ -82,6 +87,7 @@ def list_course_students(course_id: str, user: dict = Depends(get_class_rep_user
         students = cursor.fetchall()
     return {"status": "success", "data": students}
 
+
 @router.post("/redeem-invite")
 def redeem_invite(data: RedeemInvite, user: dict = Depends(get_current_user)):
     with db.get_cursor(commit=True) as cursor:
@@ -90,20 +96,32 @@ def redeem_invite(data: RedeemInvite, user: dict = Depends(get_current_user)):
             (data.code.upper(),)
         )
         invite = cursor.fetchone()
-        
+
         if not invite:
             raise HTTPException(status_code=400, detail="Invalid or already redeemed invite code")
 
-        # Update invite code to used by current user
         cursor.execute(
             "UPDATE invite_codes SET used_by = %s WHERE id = %s",
             (user["user_id"], invite["id"])
         )
-
-        # Promote user to class_rep in users table
         cursor.execute(
             "UPDATE users SET role = 'class_rep' WHERE id = %s",
             (user["user_id"],)
         )
 
     return {"status": "success", "message": "Successfully promoted to Class Representative. Please sign in again to activate your role."}
+
+
+@router.post("/generate-invite")
+def generate_invite(user: dict = Depends(get_class_rep_user)):
+    alphabet = string.ascii_uppercase + string.digits
+    code = ''.join(secrets.choice(alphabet) for _ in range(8))
+
+    with db.get_cursor(commit=True) as cursor:
+        cursor.execute(
+            "INSERT INTO invite_codes (code) VALUES (%s) RETURNING code, created_at",
+            (code,)
+        )
+        result = cursor.fetchone()
+
+    return {"status": "success", "data": {"code": result["code"], "created_at": result["created_at"]}}

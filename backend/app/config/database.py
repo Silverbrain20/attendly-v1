@@ -10,19 +10,23 @@ class Database:
         self.pool = None
         self.connect()
 
-    def connect(self):
-        try:
-            self.pool = SimpleConnectionPool(
-                minconn=1,
-                maxconn=20,
-                dsn=settings.DATABASE_URL
-            )
-            print("Connected to database successfully")
-        except Exception as e:
-            print(f"Error connecting to database: {e}")
-            time.sleep(2)
-            # Retry
-            self.connect()
+    def connect(self, retries=3):
+        attempt = 0
+        while attempt < retries:
+            try:
+                self.pool = SimpleConnectionPool(
+                    minconn=1,
+                    maxconn=20,
+                    dsn=settings.DATABASE_URL
+                )
+                print("Connected to database successfully")
+                return
+            except Exception as e:
+                attempt += 1
+                print(f"Error connecting to database (attempt {attempt}/{retries}): {e}")
+                if attempt < retries:
+                    time.sleep(2 * attempt)
+        raise RuntimeError("Could not connect to PostgreSQL database after multiple attempts.")
 
     @contextmanager
     def get_connection(self):
@@ -35,7 +39,6 @@ class Database:
     @contextmanager
     def get_cursor(self, commit=True):
         with self.get_connection() as conn:
-            # RealDictCursor allows accessing row values like a dictionary
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             try:
                 yield cursor

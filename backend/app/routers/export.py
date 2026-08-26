@@ -10,10 +10,9 @@ router = APIRouter(prefix="/api/export", tags=["Exports"])
 @router.get("/session/{session_id}")
 def export_session_attendance(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
-        # Verify session and get details
         cursor.execute(
             """
-            SELECT s.id, s.start_time, c.course_code, c.course_title
+            SELECT s.id, s.start_time, c.course_code, c.course_title, s.course_id
             FROM attendance_sessions s
             JOIN courses c ON s.course_id = c.id
             WHERE s.id = %s
@@ -22,9 +21,8 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
         )
         session = cursor.fetchone()
         if not session:
-            raise HTTPException(status_code=44, detail="Session not found")
+            raise HTTPException(status_code=404, detail="Session not found")
 
-        # Get course enrollments to ensure absentees are included
         cursor.execute(
             """
             SELECT u.id, u.full_name, u.matric_number, u.email, u.phone_number
@@ -37,25 +35,21 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
         )
         students = cursor.fetchall()
 
-        # Get attendance records for this session
         cursor.execute(
             "SELECT * FROM attendance_records WHERE session_id = %s",
             (session_id,)
         )
         records = {r["student_id"]: r for r in cursor.fetchall()}
 
-        # Get manual overrides for this session
         cursor.execute(
             "SELECT student_id, reason FROM manual_overrides WHERE session_id = %s",
             (session_id,)
         )
         overrides = {o["student_id"]: o["reason"] for o in cursor.fetchall()}
 
-    # Create in-memory CSV
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Write header
     writer.writerow([
         "Full Name", "Matric Number", "Email", "Phone Number", 
         "Status", "Method", "Distance (meters)", "Manual Override Reason", "Time Marked"

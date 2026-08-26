@@ -1,15 +1,17 @@
 import jwt
-import random
+import secrets
 import string
 import hashlib
 import bcrypt
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Optional
 from app.config.settings import settings
+
+LEGACY_ACCESS_SECRET = "attendly-super-secret-access-key-minimum-32-chars"
+LEGACY_REFRESH_SECRET = "attendly-super-secret-refresh-key-minimum-32-chars"
 
 
 def hash_password(password: str) -> str:
-    # Truncate to max 72 bytes per bcrypt standard specification
     pw_bytes = password.encode('utf-8')[:72]
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pw_bytes, salt).decode('utf-8')
@@ -25,13 +27,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def generate_otp(length: int = 6) -> str:
-    return "".join(random.choices(string.digits, k=length))
+    return "".join(secrets.choice(string.digits) for _ in range(length))
 
 
 def generate_invite_code(length: int = 8) -> str:
-    # Exclude confusing characters: 0, O, I, L, 1, etc.
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    return "".join(random.choices(chars, k=length))
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -57,14 +58,26 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
 
 
 def decode_token(token: str, token_type: str = "access") -> Optional[dict]:
+    primary_secret = settings.JWT_SECRET if token_type == "access" else settings.JWT_REFRESH_SECRET
+    
+    # 1. Try decoding with the primary active secret
     try:
-        secret = settings.JWT_SECRET if token_type == "access" else settings.JWT_REFRESH_SECRET
-        payload = jwt.decode(token, secret, algorithms=[settings.JWT_ALGORITHM])
-        if payload.get("type") != token_type:
-            return None
-        return payload
+        payload = jwt.decode(token, primary_secret, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("type") == token_type:
+            return payload
     except jwt.PyJWTError:
-        return None
+        pass
+
+    # 2. Seamless fallback: Try decoding with legacy secret to ensure zero session disruption
+    legacy_secret = LEGACY_ACCESS_SECRET if token_type == "access" else LEGACY_REFRESH_SECRET
+    try:
+        payload = jwt.decode(token, legacy_secret, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("type") == token_type:
+            return payload
+    except jwt.PyJWTError:
+        pass
+
+    return None
 
 
 def hash_token(token: str) -> str:

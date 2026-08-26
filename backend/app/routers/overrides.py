@@ -9,7 +9,6 @@ router = APIRouter(prefix="/api/overrides", tags=["Manual Overrides"])
 @router.post("")
 def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor(commit=True) as cursor:
-        # Verify session exists and belongs to a course the class rep is enrolled in
         cursor.execute(
             """
             SELECT s.id, s.course_id FROM attendance_sessions s
@@ -22,7 +21,6 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
         if not session:
             raise HTTPException(status_code=400, detail="Session not found or unauthorized")
 
-        # Verify student exists and is enrolled in the course
         cursor.execute(
             "SELECT id FROM course_enrollments WHERE course_id = %s AND user_id = %s",
             (session["course_id"], data.student_id)
@@ -30,7 +28,6 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
         if not cursor.fetchone():
             raise HTTPException(status_code=400, detail="Student is not enrolled in this course")
 
-        # Double check override cap programmatically (in addition to the DB trigger)
         cursor.execute(
             "SELECT COUNT(*) as count FROM manual_overrides WHERE session_id = %s",
             (data.session_id,)
@@ -39,7 +36,6 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
         if count >= 10:
             raise HTTPException(status_code=400, detail="Override cap (10) reached for this session")
 
-        # Insert manual override (atomic write)
         try:
             cursor.execute(
                 """
@@ -51,7 +47,6 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
             )
             override = cursor.fetchone()
             
-            # Insert or update attendance record as manual override
             cursor.execute(
                 """
                 INSERT INTO attendance_records (session_id, student_id, is_within_geofence, is_manual_override, distance_meters)
@@ -64,7 +59,7 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
         except psycopg2.DatabaseError as e:
             if "Override cap" in str(e):
                 raise HTTPException(status_code=400, detail="Override cap (10) reached for this session")
-            raise HTTPException(status_code=400, detail=f"Database error: {e}")
+            raise HTTPException(status_code=400, detail="Failed to process manual override due to database error")
 
     return {
         "status": "success",

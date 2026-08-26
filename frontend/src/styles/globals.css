@@ -1,5 +1,5 @@
 /* ============================================
-   Attendly Design System — Clean Modern Light
+   Attendly Design System — Deep Burgundy & Dusty Rose
    ============================================ */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -8,30 +8,40 @@
   --font-heading: 'Outfit', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 
-  /* Primary Palette — Indigo */
-  --primary: #4F46E5;
-  --primary-hover: #4338CA;
-  --primary-light: #EEF2FF;
-  --primary-50: #E0E7FF;
-  --primary-100: #C7D2FE;
-  --primary-ring: rgba(79, 70, 229, 0.25);
+  /* Primary Palette — Deep Burgundy & Velvet Wine */
+  --primary: #6C0022;
+  --primary-hover: #52001A;
+  --primary-active: #3D0013;
+  --primary-light: #FAF0F3;
+  --primary-50: #FDF2F5;
+  --primary-100: #F8DDE4;
+  --primary-200: #EEB5C3;
+  --primary-ring: rgba(108, 0, 34, 0.22);
+  --primary-gradient: linear-gradient(135deg, #7B0C2E 0%, #58001B 100%);
+  --primary-gradient-subtle: linear-gradient(135deg, rgba(108, 0, 34, 0.05) 0%, rgba(185, 134, 149, 0.12) 100%);
+
+  /* Accent & Secondary — Soft Dusty Rose */
+  --secondary: #B98695;
+  --secondary-hover: #A37180;
+  --secondary-light: #F7EFF1;
+  --accent: #B98695;
 
   /* Surfaces */
   --bg: #FFFFFF;
-  --bg-subtle: #F8FAFC;
-  --bg-muted: #F1F5F9;
-  --bg-page: #F8FAFC;
+  --bg-subtle: #FDF8F9;
+  --bg-muted: #F7EEF0;
+  --bg-page: #FCF8F9;
 
   /* Text */
-  --text: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #94A3B8;
+  --text: #1F040D;
+  --text-secondary: #4A3A40;
+  --text-muted: #8C7B82;
   --text-inverse: #FFFFFF;
 
   /* Borders */
-  --border: #E2E8F0;
-  --border-hover: #CBD5E1;
-  --border-focus: #4F46E5;
+  --border: #E8D8DC;
+  --border-hover: #D4BFC5;
+  --border-focus: #6C0022;
 
   /* Semantic Colors */
   --success: #059669;
@@ -47,10 +57,10 @@
   --danger-border: #FECACA;
 
   /* Elevation */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xs: 0 1px 2px rgba(108, 0, 34, 0.04);
+  --shadow-sm: 0 2px 4px rgba(108, 0, 34, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 12px -2px rgba(108, 0, 34, 0.08), 0 3px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 24px -4px rgba(108, 0, 34, 0.12), 0 4px 8px -4px rgba(0, 0, 0, 0.04);
 
   /* Radii */
   --radius-sm: 8px;
@@ -395,18 +405,18 @@ a:hover {
   padding: 0.45rem 1.125rem;
   border-radius: var(--radius-full);
   background: #FFFFFF;
-  border: 1px solid rgba(79, 70, 229, 0.22);
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(108, 0, 34, 0.2);
+  box-shadow: 0 4px 14px rgba(108, 0, 34, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--primary-hover);
+  color: var(--primary);
   transition: all var(--transition-base);
 }
 
 .expert-badge:hover {
   border-color: var(--primary);
-  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.14);
+  box-shadow: 0 6px 18px rgba(108, 0, 34, 0.16);
 }
 
 .expert-badge-dot {
@@ -522,33 +532,83 @@ a:hover {
 }
 
 /* ── Responsive Utilities ────────────────── */
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 1.25rem;
+  }
+}
+
 @media (max-width: 768px) {
   h1 { font-size: 2rem; }
   h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.15rem; }
 
   .card {
-    padding: 1.5rem;
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
   }
 
   .container {
     padding: 0 1rem;
   }
 
+  .nav-inner {
+    padding: 0.75rem 1rem;
+  }
+
   .hide-mobile {
     display: none !important;
+  }
+
+  .form-input, .form-select {
+    font-size: 16px; /* Prevents auto-zoom on iOS Safari */
+    min-height: 44px; /* Touch target minimum */
+  }
+
+  .btn {
+    min-height: 44px; /* Touch target minimum */
+  }
+
+  .attendance-row {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
 @media (max-width: 480px) {
-  h1 { font-size: 1.75rem; }
+  html, body {
+    overflow-x: hidden;
+  }
+
+  h1 { font-size: 1.65rem; }
+  h2 { font-size: 1.3rem; }
 
   .card {
-    padding: 1.25rem;
+    padding: 1rem;
+  }
+
+  .container {
+    padding: 0 0.75rem;
+  }
+
+  .nav-inner {
+    padding: 0.625rem 0.75rem;
   }
 
   .btn-lg {
     padding: 0.625rem 1.25rem;
     font-size: 0.9375rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .audit-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 }
 
