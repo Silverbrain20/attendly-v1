@@ -1,3 +1,4 @@
+import threading
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -9,16 +10,19 @@ if settings.RESEND_API_KEY:
 
 
 def send_verification_email(to_email: str, name: str, otp: str) -> bool:
+    print(f"\n==========================================")
+    print(f"🔑 [ATTENDLY VERIFICATION OTP] Email: {to_email} | OTP: {otp}")
+    print(f"==========================================\n")
     subject = "Attendly — Confirm Your Email"
     html_content = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #4f46e5; margin: 0; font-size: 22px;">Welcome to Attendly</h2>
+            <h2 style="color: #6C0022; margin: 0; font-size: 22px;">Welcome to Attendly</h2>
             <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Smart Geo-Verified Attendance</p>
         </div>
         <p style="color: #334155; font-size: 15px;">Hi {name},</p>
         <p style="color: #334155; font-size: 15px;">Please use the following verification code to confirm your email address:</p>
-        <div style="font-size: 28px; font-weight: bold; color: #4f46e5; padding: 18px; background: #eef2ff; text-align: center; border-radius: 8px; letter-spacing: 6px; margin: 20px 0;">
+        <div style="font-size: 28px; font-weight: bold; color: #6C0022; padding: 18px; background: #fff1f2; text-align: center; border-radius: 8px; letter-spacing: 6px; margin: 20px 0;">
             {otp}
         </div>
         <p style="font-size: 13px; color: #94a3b8; margin-top: 24px; text-align: center;">This code will expire in 15 minutes. If you did not sign up for Attendly, please ignore this email.</p>
@@ -28,11 +32,14 @@ def send_verification_email(to_email: str, name: str, otp: str) -> bool:
 
 
 def send_reset_otp_email(to_email: str, name: str, otp: str) -> bool:
+    print(f"\n==========================================")
+    print(f"🔑 [ATTENDLY RESET OTP] Email: {to_email} | OTP: {otp}")
+    print(f"==========================================\n")
     subject = "Attendly — Password Reset Request"
     html_content = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #4f46e5; margin: 0; font-size: 22px;">Reset Your Password</h2>
+            <h2 style="color: #6C0022; margin: 0; font-size: 22px;">Reset Your Password</h2>
             <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Attendly Account Security</p>
         </div>
         <p style="color: #334155; font-size: 15px;">Hi {name},</p>
@@ -47,16 +54,19 @@ def send_reset_otp_email(to_email: str, name: str, otp: str) -> bool:
 
 
 def send_device_verification_email(to_email: str, name: str, otp: str) -> bool:
+    print(f"\n==========================================")
+    print(f"🔑 [ATTENDLY DEVICE OTP] Email: {to_email} | OTP: {otp}")
+    print(f"==========================================\n")
     subject = "Attendly — New Device Verification"
     html_content = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #4f46e5; margin: 0; font-size: 22px;">New Device Detected</h2>
+            <h2 style="color: #6C0022; margin: 0; font-size: 22px;">New Device Detected</h2>
             <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Security Check</p>
         </div>
         <p style="color: #334155; font-size: 15px;">Hi {name},</p>
         <p style="color: #334155; font-size: 15px;">You are signing in from a new device or browser. Verify your sign-in with this code:</p>
-        <div style="font-size: 28px; font-weight: bold; color: #2563eb; padding: 18px; background: #eff6ff; text-align: center; border-radius: 8px; letter-spacing: 6px; margin: 20px 0;">
+        <div style="font-size: 28px; font-weight: bold; color: #6C0022; padding: 18px; background: #fff1f2; text-align: center; border-radius: 8px; letter-spacing: 6px; margin: 20px 0;">
             {otp}
         </div>
         <p style="font-size: 13px; color: #94a3b8; margin-top: 24px; text-align: center;">This code expires in 15 minutes.</p>
@@ -65,8 +75,25 @@ def send_device_verification_email(to_email: str, name: str, otp: str) -> bool:
     return _send(to_email, subject, html_content)
 
 
-def _send(to_email: str, subject: str, html: str) -> bool:
-    # 1. SMTP (Gmail / Custom SMTP) if credentials are provided
+def _send_worker(to_email: str, subject: str, html: str):
+    """Executes email transmission in background thread so HTTP requests respond instantly."""
+    # 1. Try Resend API first (Fastest HTTP delivery over 443)
+    if settings.RESEND_API_KEY:
+        try:
+            # Resend requires onboarding@resend.dev unless custom domain is verified
+            from_sender = "onboarding@resend.dev"
+            resend.Emails.send({
+                "from": f"Attendly <{from_sender}>",
+                "to": to_email,
+                "subject": subject,
+                "html": html
+            })
+            print(f"[RESEND SUCCESS] Email sent to {to_email} via Resend")
+            return
+        except Exception as e:
+            print(f"[RESEND WARNING] Resend delivery failed: {e}. Trying SMTP...")
+
+    # 2. Try SMTP with 5-second socket timeout
     if settings.SMTP_USER and settings.SMTP_PASSWORD:
         try:
             msg = MIMEMultipart("alternative")
@@ -77,33 +104,21 @@ def _send(to_email: str, subject: str, html: str) -> bool:
             part = MIMEText(html, "html")
             msg.attach(part)
             
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as server:
                 server.starttls()
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 server.sendmail(settings.SMTP_USER, to_email, msg.as_string())
             print(f"[SMTP SUCCESS] Email sent to {to_email} via {settings.SMTP_HOST}")
-            return True
+            return
         except Exception as e:
-            print(f"[SMTP ERROR] Failed to send email via SMTP: {e}")
+            print(f"[SMTP WARNING] Failed to send email via SMTP: {e}")
 
-    # 2. Resend API Fallback if API key exists
-    if settings.RESEND_API_KEY:
-        try:
-            resend.Emails.send({
-                "from": settings.EMAIL_FROM,
-                "to": to_email,
-                "subject": subject,
-                "html": html
-            })
-            print(f"[RESEND SUCCESS] Email sent to {to_email} via Resend")
-            return True
-        except Exception as e:
-            print(f"[RESEND ERROR] Failed to send email via Resend: {e}")
+    print(f"[EMAIL COMPLETED] OTP logged above for {to_email}")
 
-    # 3. Development / Mock Mode fallback if no services configured
-    print("\n=== [DEVELOPMENT MODE: EMAIL LOG] ===")
-    print(f"To: {to_email}")
-    print(f"Subject: {subject}")
-    print(f"Body snippet: {html[:120]}...")
-    print("=====================================\n")
+
+def _send(to_email: str, subject: str, html: str) -> bool:
+    """Dispatches email sending asynchronously in a background thread."""
+    thread = threading.Thread(target=_send_worker, args=(to_email, subject, html), daemon=True)
+    thread.start()
     return True
+
