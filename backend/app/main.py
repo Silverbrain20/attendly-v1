@@ -49,9 +49,9 @@ app.include_router(overrides.router)
 app.include_router(export.router)
 
 @app.get("/")
-def read_root():
+async def read_root():
     return {"name": "Attendly API", "status": "online"}
 
 @app.get("/health")
-def health_check():
+async def health():
     return {"status": "ok"}
