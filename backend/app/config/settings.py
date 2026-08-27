@@ -18,8 +18,6 @@ class Settings:
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 24 * 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
-    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@attendly.com")
     
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_ANON_KEY", os.getenv("SUPABASE_KEY", ""))
@@ -38,11 +36,6 @@ class Settings:
             if match_pooler:
                 return f"https://{match_pooler.group(1)}.supabase.co"
         return ""
-
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587")) if os.getenv("SMTP_PORT") else 587
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
 
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
     

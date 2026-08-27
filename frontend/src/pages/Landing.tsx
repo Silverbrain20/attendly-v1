@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Shield, Clock, ArrowRight, CheckCircle, Sparkles } from 'lucide-react';
+import { MapPin, Shield, Clock, ArrowRight, CheckCircle } from 'lucide-react';
 import Logo from '../components/Logo';
 
 const phrases = [
@@ -87,7 +87,6 @@ const Landing: React.FC = () => {
                 <span className="expert-badge-dot" />
                 <Shield size={14} style={{ color: 'var(--primary)' }} />
                 <span>GEO-VERIFIED ATTENDANCE SYSTEM</span>
-                <Sparkles size={13} style={{ color: 'var(--warning)', marginLeft: '2px' }} />
               </div>
             </div>
 

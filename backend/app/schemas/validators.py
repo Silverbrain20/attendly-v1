@@ -8,6 +8,7 @@ class StudentRegister(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     matric_number: str = Field(..., min_length=3, max_length=30)
     phone_number: str = Field(..., min_length=7, max_length=20)
+    secret_answer: Optional[str] = Field(None, max_length=200)
     device_fingerprint: Optional[Dict] = None
 
 

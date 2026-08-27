@@ -51,3 +51,10 @@ class Database:
                 cursor.close()
 
 db = Database()
+
+# Initialize Supabase Python Client (supabase-py) for Auth & OTP management
+from supabase import create_client, Client
+_sb_url = settings.EFFECTIVE_SUPABASE_URL or settings.SUPABASE_URL or "https://placeholder.supabase.co"
+_sb_key = settings.SUPABASE_KEY or "placeholder-key"
+supabase: Client = create_client(_sb_url, _sb_key)
+
