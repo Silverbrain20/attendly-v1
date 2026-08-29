@@ -37,31 +37,43 @@ const PWAGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-const PWARootRoute: React.FC = () => {
-  const { user, isLoading } = useAuth();
-  if (isLoading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="animate-spin" style={{ width: '40px', height: '40px', border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }} />
-      </div>
-    );
-  }
-  if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to="/dashboard" replace />;
+const PWAVisibilityManager: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    let lastActive = Date.now();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const elapsed = Date.now() - lastActive;
+        // Auto-refresh when opening or returning to the PWA app from background
+        if (elapsed > 2000) {
+          window.location.reload();
+        }
+      } else {
+        lastActive = Date.now();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  return <>{children}</>;
 };
 
 const AppRoutes: React.FC = () => (
   <PWAGate>
-    <Routes>
-      <Route path="/" element={isPWA() ? <PWARootRoute /> : <Landing />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/verify" element={<Verify />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/attend/:sessionId" element={<ProtectedRoute><Attend /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+    <PWAVisibilityManager>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/attend/:sessionId" element={<ProtectedRoute><Attend /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </PWAVisibilityManager>
   </PWAGate>
 );
 
