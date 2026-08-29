@@ -36,6 +36,7 @@ app.add_middleware(RequestBodyLimitMiddleware, max_body_bytes=1_048_576)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
