@@ -34,6 +34,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Safety timeout: if request hangs on background wake-up, fallback to login
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 3500);
+
     try {
       const data = await apiRequest('GET', '/api/auth/me');
       if (data.status === 'success') {
@@ -45,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       logout();
     } finally {
+      clearTimeout(timeout);
       setIsLoading(false);
     }
   };
@@ -55,8 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleAuthChange = () => {
       refreshUser();
     };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUser();
+      }
+    };
+
     window.addEventListener('auth_change', handleAuthChange);
-    return () => window.removeEventListener('auth_change', handleAuthChange);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('auth_change', handleAuthChange);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, []);
 
   const login = async (matric_number: string, password: string) => {

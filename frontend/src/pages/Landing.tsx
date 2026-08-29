@@ -81,14 +81,7 @@ const Landing: React.FC = () => {
         <section style={{ padding: '5.5rem 1.5rem 4.5rem', textAlign: 'center', background: 'var(--bg)' }}>
           <div className="animate-slideUp" style={{ maxWidth: '780px', margin: '0 auto' }}>
 
-            {/* Expert-Grade Badge */}
-            <div style={{ marginBottom: '1.75rem', display: 'inline-block' }}>
-              <div className="expert-badge">
-                <span className="expert-badge-dot" />
-                <Shield size={14} style={{ color: 'var(--primary)' }} />
-                <span>GEO-VERIFIED ATTENDANCE SYSTEM</span>
-              </div>
-            </div>
+
 
             {/* Typewriter Hero Headline */}
             <h1 style={{
