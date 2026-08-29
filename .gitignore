@@ -18,6 +18,8 @@ frontend/dist/
 dist/
 
 # IDE & OS files
+.impeccable/ 
+.codex/
 .agents/
 .vscode/
 .idea/
