@@ -17,7 +17,7 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
             """
-            SELECT s.id, s.course_id, s.created_by, s.start_time, s.end_time, s.is_active,
+            SELECT s.id, s.course_id, s.created_by, s.start_time, s.end_time, s.ended_at,
                    ST_Y(s.location_point::geometry) as center_lat,
                    ST_X(s.location_point::geometry) as center_lng
             FROM attendance_sessions s
@@ -29,7 +29,7 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
         if not sess:
             raise HTTPException(status_code=404, detail="Attendance session not found")
 
-        if not sess.get("is_active"):
+        if sess.get("ended_at") is not None:
             raise HTTPException(status_code=400, detail="Attendance session is closed or inactive")
 
         cursor.execute(

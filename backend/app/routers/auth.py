@@ -91,7 +91,7 @@ def login(request: Request, data: StudentLogin):
         cursor.execute(
             """
             SELECT id FROM attendance_sessions
-            WHERE is_active = TRUE AND NOW() BETWEEN start_time AND end_time
+            WHERE ended_at IS NULL AND NOW() BETWEEN start_time AND end_time
             """
         )
         active_session = cursor.fetchone()
