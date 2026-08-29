@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, Share, PlusSquare, ShieldCheck, Sparkles, CheckCircle2, Monitor } from 'lucide-react';
+import { Smartphone, Download, Share, PlusSquare, ShieldCheck, CheckCircle2, Monitor } from 'lucide-react';
 
 const InstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -33,7 +33,7 @@ const InstallPrompt: React.FC = () => {
     <div style={{
       minHeight: '100vh',
       width: '100%',
-      background: 'radial-gradient(circle at 50% 0%, #2A0815 0%, #0F172A 70%, #020617 100%)',
+      background: '#0B0F19',
       color: '#FFFFFF',
       display: 'flex',
       alignItems: 'center',
@@ -43,57 +43,38 @@ const InstallPrompt: React.FC = () => {
       WebkitFontSmoothing: 'antialiased'
     }}>
       <div style={{
-        maxWidth: '480px',
+        maxWidth: '460px',
         width: '100%',
-        background: 'rgba(30, 41, 59, 0.85)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        borderRadius: '32px',
-        border: '1px solid rgba(255, 255, 255, 0.14)',
-        padding: '2.5rem 2rem',
-        boxShadow: '0 30px 70px -15px rgba(0, 0, 0, 0.8), 0 0 50px rgba(108, 0, 34, 0.25)',
+        background: '#151D2A',
+        borderRadius: '24px',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        padding: '2.25rem 2rem',
+        boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
+        textAlign: 'center'
       }}>
-        {/* Glow Accent Ambient Lighting */}
-        <div style={{
-          position: 'absolute',
-          top: '-70px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '240px',
-          height: '140px',
-          background: 'radial-gradient(circle, rgba(225, 29, 72, 0.45) 0%, rgba(108, 0, 34, 0) 70%)',
-          filter: 'blur(35px)',
-          pointerEvents: 'none'
-        }} />
-
-        {/* Single Main Logo Badge & Clean Brand Typography */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.875rem', marginBottom: '1.25rem', position: 'relative' }}>
+        {/* Main Logo & Brand Header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
           <div style={{
-            width: '84px',
-            height: '84px',
-            borderRadius: '26px',
-            background: 'linear-gradient(135deg, rgba(108, 0, 34, 0.5) 0%, rgba(30, 41, 59, 0.95) 100%)',
-            border: '1.5px solid rgba(244, 63, 94, 0.4)',
+            width: '72px',
+            height: '72px',
+            borderRadius: '20px',
+            background: 'rgba(108, 0, 34, 0.25)',
+            border: '1px solid rgba(244, 63, 94, 0.25)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 12px 30px rgba(108, 0, 34, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-            transition: 'transform 0.3s ease'
+            justifyContent: 'center'
           }}>
-            <img src="/icon.svg" alt="Attendly Logo" style={{ width: '58px', height: '58px', objectFit: 'contain' }} />
+            <img src="/icon.svg" alt="Attendly Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
           </div>
           
           <h2 style={{
             fontFamily: "'Outfit', 'Inter', sans-serif",
             fontWeight: 800,
-            fontSize: '2rem',
-            letterSpacing: '-0.03em',
+            fontSize: '1.75rem',
+            letterSpacing: '-0.02em',
             color: '#FFFFFF',
             margin: 0,
             lineHeight: 1
@@ -102,75 +83,73 @@ const InstallPrompt: React.FC = () => {
           </h2>
         </div>
 
-        {/* Security Badge */}
+        {/* Clean Status Pill */}
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '6px 16px',
+          padding: '4px 12px',
           borderRadius: '9999px',
-          background: 'rgba(244, 63, 94, 0.15)',
-          border: '1px solid rgba(244, 63, 94, 0.35)',
-          color: '#FDA4AF',
-          fontSize: '0.8125rem',
-          fontWeight: 700,
-          letterSpacing: '0.5px',
+          background: 'rgba(244, 63, 94, 0.1)',
+          border: '1px solid rgba(244, 63, 94, 0.25)',
+          color: '#F43F5E',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          letterSpacing: '0.3px',
           textTransform: 'uppercase',
-          marginBottom: '1.25rem'
+          marginBottom: '1rem'
         }}>
-          <Sparkles size={15} /> Official Mobile App Required
+          App Installation Required
         </div>
 
         <h1 style={{
-          fontSize: '1.75rem',
-          fontWeight: 800,
-          marginBottom: '0.75rem',
-          letterSpacing: '-0.02em',
+          fontSize: '1.5rem',
+          fontWeight: 700,
+          marginBottom: '0.5rem',
           color: '#FFFFFF',
-          lineHeight: '1.2'
+          lineHeight: '1.3'
         }}>
-          Install Attendly App
+          Install Attendly
         </h1>
 
         <p style={{
           color: '#94A3B8',
-          fontSize: '0.9375rem',
+          fontSize: '0.875rem',
           lineHeight: '1.6',
-          marginBottom: '1.75rem',
-          maxWidth: '380px'
+          marginBottom: '1.5rem',
+          maxWidth: '360px'
         }}>
-          To ensure geo-fencing accuracy and device-locked security, Attendly must be installed on your device.
+          Attendly requires device installation to support GPS location verification and single-device account locking.
         </p>
 
         {/* Feature Highlights Grid */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '0.875rem',
+          gap: '0.75rem',
           width: '100%',
-          marginBottom: '1.75rem',
+          marginBottom: '1.5rem',
           textAlign: 'left'
         }}>
           <div style={{
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '18px',
-            padding: '1rem'
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '14px',
+            padding: '0.875rem'
           }}>
-            <ShieldCheck size={22} color="#F43F5E" style={{ marginBottom: '0.5rem' }} />
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#F8FAFC' }}>Device Security</div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px', lineHeight: '1.4' }}>Account bound to your device</div>
+            <ShieldCheck size={20} color="#F43F5E" style={{ marginBottom: '0.375rem' }} />
+            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>Device Security</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px', lineHeight: '1.3' }}>Bound to your device</div>
           </div>
 
           <div style={{
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '18px',
-            padding: '1rem'
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '14px',
+            padding: '0.875rem'
           }}>
-            <CheckCircle2 size={22} color="#38BDF8" style={{ marginBottom: '0.5rem' }} />
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#F8FAFC' }}>1-Tap Check-in</div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px', lineHeight: '1.4' }}>Fast GPS geo verification</div>
+            <CheckCircle2 size={20} color="#38BDF8" style={{ marginBottom: '0.375rem' }} />
+            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>GPS Verification</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px', lineHeight: '1.3' }}>Instant class check-in</div>
           </div>
         </div>
 
@@ -181,11 +160,11 @@ const InstallPrompt: React.FC = () => {
           style={{
             display: 'flex',
             width: '100%',
-            background: 'rgba(15, 23, 42, 0.6)',
-            padding: '4px',
-            borderRadius: '16px',
-            marginBottom: '1.25rem',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            background: '#0B0F19',
+            padding: '3px',
+            borderRadius: '12px',
+            marginBottom: '1rem',
+            border: '1px solid rgba(255, 255, 255, 0.06)'
           }}
         >
           <button
@@ -194,17 +173,16 @@ const InstallPrompt: React.FC = () => {
             onClick={() => setActiveTab('android')}
             style={{
               flex: 1,
-              minHeight: '42px',
-              padding: '8px 0',
-              borderRadius: '12px',
+              minHeight: '38px',
+              padding: '6px 0',
+              borderRadius: '9px',
               border: 'none',
-              fontSize: '0.84rem',
-              fontWeight: 700,
+              fontSize: '0.8125rem',
+              fontWeight: 600,
               cursor: 'pointer',
-              background: activeTab === 'android' ? 'linear-gradient(135deg, #6C0022 0%, #991B1B 100%)' : 'transparent',
+              background: activeTab === 'android' ? '#6C0022' : 'transparent',
               color: activeTab === 'android' ? '#FFFFFF' : '#94A3B8',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxShadow: activeTab === 'android' ? '0 4px 14px rgba(108, 0, 34, 0.5)' : 'none',
+              transition: 'all 0.2s ease',
               outline: 'none'
             }}
           >
@@ -216,17 +194,16 @@ const InstallPrompt: React.FC = () => {
             onClick={() => setActiveTab('ios')}
             style={{
               flex: 1,
-              minHeight: '42px',
-              padding: '8px 0',
-              borderRadius: '12px',
+              minHeight: '38px',
+              padding: '6px 0',
+              borderRadius: '9px',
               border: 'none',
-              fontSize: '0.84rem',
-              fontWeight: 700,
+              fontSize: '0.8125rem',
+              fontWeight: 600,
               cursor: 'pointer',
-              background: activeTab === 'ios' ? 'linear-gradient(135deg, #6C0022 0%, #991B1B 100%)' : 'transparent',
+              background: activeTab === 'ios' ? '#6C0022' : 'transparent',
               color: activeTab === 'ios' ? '#FFFFFF' : '#94A3B8',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxShadow: activeTab === 'ios' ? '0 4px 14px rgba(108, 0, 34, 0.5)' : 'none',
+              transition: 'all 0.2s ease',
               outline: 'none'
             }}
           >
@@ -238,17 +215,16 @@ const InstallPrompt: React.FC = () => {
             onClick={() => setActiveTab('desktop')}
             style={{
               flex: 1,
-              minHeight: '42px',
-              padding: '8px 0',
-              borderRadius: '12px',
+              minHeight: '38px',
+              padding: '6px 0',
+              borderRadius: '9px',
               border: 'none',
-              fontSize: '0.84rem',
-              fontWeight: 700,
+              fontSize: '0.8125rem',
+              fontWeight: 600,
               cursor: 'pointer',
-              background: activeTab === 'desktop' ? 'linear-gradient(135deg, #6C0022 0%, #991B1B 100%)' : 'transparent',
+              background: activeTab === 'desktop' ? '#6C0022' : 'transparent',
               color: activeTab === 'desktop' ? '#FFFFFF' : '#94A3B8',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxShadow: activeTab === 'desktop' ? '0 4px 14px rgba(108, 0, 34, 0.5)' : 'none',
+              transition: 'all 0.2s ease',
               outline: 'none'
             }}
           >
@@ -259,79 +235,77 @@ const InstallPrompt: React.FC = () => {
         {/* Tab Content Box */}
         <div style={{
           width: '100%',
-          background: 'rgba(15, 23, 42, 0.5)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '20px',
-          padding: '1.35rem',
-          textAlign: 'left',
-          transition: 'all 0.2s ease-in-out'
+          background: 'rgba(11, 15, 25, 0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          borderRadius: '16px',
+          padding: '1.25rem',
+          textAlign: 'left'
         }}>
           {activeTab === 'ios' && (
-            <div className="animate-fadeIn">
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Smartphone size={18} /> Safari Setup Steps:
+            <div>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.625rem', color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Smartphone size={16} /> Safari Setup Steps:
               </div>
-              <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: '#CBD5E1', lineHeight: '1.8' }}>
-                <li>Tap the <strong style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Share size={14} /> Share</strong> icon at the bottom of Safari.</li>
-                <li>Scroll down and select <strong style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><PlusSquare size={14} /> Add to Home Screen</strong>.</li>
-                <li>Open <strong>Attendly</strong> from your home screen to sign in.</li>
+              <ol style={{ margin: 0, paddingLeft: '1.125rem', fontSize: '0.8125rem', color: '#CBD5E1', lineHeight: '1.7' }}>
+                <li>Tap the <strong style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Share size={13} /> Share</strong> icon in Safari.</li>
+                <li>Select <strong style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><PlusSquare size={13} /> Add to Home Screen</strong>.</li>
+                <li>Open <strong>Attendly</strong> from your home screen.</li>
               </ol>
             </div>
           )}
 
           {activeTab === 'android' && (
-            <div className="animate-fadeIn">
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: '#4ADE80', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Download size={18} /> Android Setup Steps:
+            <div>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.625rem', color: '#4ADE80', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Download size={16} /> Android Setup Steps:
               </div>
               {deferredPrompt ? (
                 <button
                   onClick={handleInstallClick}
                   style={{
                     width: '100%',
-                    minHeight: '48px',
-                    padding: '0.875rem 1.5rem',
-                    background: 'linear-gradient(135deg, #6C0022 0%, #991B1B 100%)',
+                    minHeight: '44px',
+                    padding: '0.75rem 1.25rem',
+                    background: '#6C0022',
                     color: '#FFFFFF',
                     border: 'none',
-                    borderRadius: '14px',
-                    fontSize: '0.9375rem',
-                    fontWeight: 700,
+                    borderRadius: '10px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.625rem',
-                    boxShadow: '0 10px 25px -5px rgba(108, 0, 34, 0.6)',
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    gap: '0.5rem',
+                    transition: 'background 0.2s ease',
                     outline: 'none'
                   }}
                 >
-                  <Download size={18} /> Add to Home Screen
+                  <Download size={16} /> Add to Home Screen
                 </button>
               ) : (
-                <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: '#CBD5E1', lineHeight: '1.8' }}>
+                <ol style={{ margin: 0, paddingLeft: '1.125rem', fontSize: '0.8125rem', color: '#CBD5E1', lineHeight: '1.7' }}>
                   <li>Tap the <strong>Chrome menu (⋮)</strong> top-right.</li>
                   <li>Tap <strong style={{ color: '#4ADE80' }}>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-                  <li>Open <strong>Attendly</strong> from your home screen to sign in.</li>
+                  <li>Open <strong>Attendly</strong> from your home screen.</li>
                 </ol>
               )}
             </div>
           )}
 
           {activeTab === 'desktop' && (
-            <div className="animate-fadeIn">
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.5rem', color: '#F43F5E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Monitor size={18} /> Desktop Setup Steps:
+            <div>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem', color: '#F43F5E', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Monitor size={16} /> Desktop Setup Steps:
               </div>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#CBD5E1', lineHeight: '1.6' }}>
-                Click the <strong>Install Icon (⊕)</strong> located on the right side of your Chrome or Edge address bar to install Attendly.
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: '#CBD5E1', lineHeight: '1.5' }}>
+                Click the <strong>Install Icon (⊕)</strong> in your Chrome or Edge address bar to install Attendly.
               </p>
             </div>
           )}
         </div>
 
-        <div style={{ marginTop: '1.75rem', fontSize: '0.75rem', color: '#64748B' }}>
+        <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: '#64748B' }}>
           &copy; Attendly Geo-Verified Attendance Platform
         </div>
       </div>
