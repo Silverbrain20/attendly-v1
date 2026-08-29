@@ -1,5 +1,22 @@
 /// <reference types="vite/client" />
-const API_BASE = import.meta.env.VITE_API_BASE || `http://${window.location.hostname || '127.0.0.1'}:8000`;
+const PRIMARY_API = import.meta.env.VITE_API_BASE || `http://${window.location.hostname || '127.0.0.1'}:8000`;
+const FALLBACK_API = import.meta.env.VITE_API_FALLBACK || 'https://attendly-v1.onrender.com';
+
+async function fetchWithFailover(path: string, options: RequestInit): Promise<Response> {
+  try {
+    const res = await fetch(`${PRIMARY_API}${path}`, options);
+    if (res.status >= 502 && res.status <= 504) {
+      throw new Error(`Primary server status ${res.status}`);
+    }
+    return res;
+  } catch (err) {
+    if (FALLBACK_API && FALLBACK_API !== PRIMARY_API && !PRIMARY_API.includes('localhost') && !PRIMARY_API.includes('127.0.0.1')) {
+      console.warn(`Primary API unreachable, falling back to secondary backup: ${FALLBACK_API}`);
+      return await fetch(`${FALLBACK_API}${path}`, options);
+    }
+    throw err;
+  }
+}
 
 export function getDeviceFingerprint() {
   return {
@@ -25,13 +42,13 @@ export async function apiRequest(
   const options: RequestInit = { method, headers };
   if (body) options.body = JSON.stringify(body);
 
-  const response = await fetch(`${API_BASE}${path}`, options);
+  const response = await fetchWithFailover(path, options);
 
   if (response.status === 401 && !skipAuth && !path.includes('/refresh')) {
     const refreshed = await attemptTokenRefresh();
     if (refreshed) {
       headers['Authorization'] = `Bearer ${localStorage.getItem('accessToken')}`;
-      const retryResponse = await fetch(`${API_BASE}${path}`, options);
+      const retryResponse = await fetchWithFailover(path, options);
       const data = await retryResponse.json();
       if (!retryResponse.ok) throw new Error(data.detail || 'Request failed');
       return data;
@@ -74,7 +91,7 @@ async function attemptTokenRefresh(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+    const res = await fetchWithFailover('/api/auth/refresh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -101,7 +118,7 @@ export async function downloadFile(path: string, fallbackFilename: string) {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE}${path}`, { headers });
+  const response = await fetchWithFailover(path, { headers });
 
   if (!response.ok) {
     const errorText = await response.text();
