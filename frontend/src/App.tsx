@@ -41,11 +41,10 @@ const AppRoutes: React.FC = () => (
 );
 
 const App: React.FC = () => {
-  const [dismissed, setDismissed] = React.useState(false);
   const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  if (!isPWA() && !isDev && !dismissed) {
-    return <InstallPrompt onDismiss={() => setDismissed(true)} />;
+  if (!isPWA() && !isDev) {
+    return <InstallPrompt />;
   }
 
   return (

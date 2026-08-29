@@ -1,17 +1,29 @@
 /// <reference types="vite/client" />
-const PRIMARY_API = import.meta.env.VITE_API_BASE || `http://${window.location.hostname || '127.0.0.1'}:8000`;
-const FALLBACK_API = import.meta.env.VITE_API_FALLBACK || 'https://attendly-v1.onrender.com';
+const getPrimaryApi = () => {
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE.replace(/\/+$/, '');
+  }
+  // In production (Vercel), default to relative path "" so Vercel Serverless endpoints /api/* are called on same origin
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '';
+  }
+  return `http://${window.location.hostname || '127.0.0.1'}:8000`;
+};
+
+const PRIMARY_API = getPrimaryApi();
+const FALLBACK_API = (import.meta.env.VITE_API_FALLBACK || 'https://attendly-v1.onrender.com').replace(/\/+$/, '');
 
 async function fetchWithFailover(path: string, options: RequestInit): Promise<Response> {
+  const url = `${PRIMARY_API}${path}`;
   try {
-    const res = await fetch(`${PRIMARY_API}${path}`, options);
-    if (res.status >= 502 && res.status <= 504) {
-      throw new Error(`Primary server status ${res.status}`);
+    const res = await fetch(url, options);
+    if (res.status >= 502 && res.status <= 504 && FALLBACK_API) {
+      throw new Error(`Primary server error ${res.status}`);
     }
     return res;
   } catch (err) {
-    if (FALLBACK_API && FALLBACK_API !== PRIMARY_API && !PRIMARY_API.includes('localhost') && !PRIMARY_API.includes('127.0.0.1')) {
-      console.warn(`Primary API unreachable, falling back to secondary backup: ${FALLBACK_API}`);
+    if (FALLBACK_API && PRIMARY_API !== FALLBACK_API && PRIMARY_API !== '' && !PRIMARY_API.includes('localhost') && !PRIMARY_API.includes('127.0.0.1')) {
+      console.warn(`Primary Vercel API unreachable, attempting secondary backup: ${FALLBACK_API}${path}`);
       return await fetch(`${FALLBACK_API}${path}`, options);
     }
     throw err;

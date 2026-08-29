@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
-import { Smartphone, Download, Share, PlusSquare, ShieldCheck, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Smartphone, Download, Share, PlusSquare, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
 
-interface InstallPromptProps {
-  onDismiss?: () => void;
-}
-
-const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
+const InstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'ios' | 'android' | 'desktop'>('android');
   const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
@@ -93,7 +89,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
           textTransform: 'uppercase',
           marginBottom: '1rem'
         }}>
-          <Sparkles size={14} /> Official Mobile App Experience
+          <Sparkles size={14} /> Official App Required
         </div>
 
         <h1 style={{
@@ -103,7 +99,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
           letterSpacing: '-0.5px',
           color: '#FFFFFF'
         }}>
-          Get the Attendly App
+          Install Attendly
         </h1>
 
         <p style={{
@@ -112,7 +108,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
           lineHeight: '1.6',
           marginBottom: '1.75rem'
         }}>
-          Enjoy 1-tap geo check-ins, automatic device security, and seamless attendance tracking directly from your home screen.
+          Attendly requires the installed application to enable device security, lock your account to your phone, and mark attendance.
         </p>
 
         {/* Feature Highlights */}
@@ -130,7 +126,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
             padding: '0.875rem'
           }}>
             <ShieldCheck size={20} color="#F43F5E" style={{ marginBottom: '0.375rem' }} />
-            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#F8FAFC' }}>Device Binding</div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#F8FAFC' }}>Device Security</div>
             <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>Account locked to phone</div>
           </div>
 
@@ -214,8 +210,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
           border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '18px',
           padding: '1.25rem',
-          textAlign: 'left',
-          marginBottom: '1.5rem'
+          textAlign: 'left'
         }}>
           {activeTab === 'ios' && (
             <div>
@@ -225,7 +220,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
               <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: '#CBD5E1', lineHeight: '1.8' }}>
                 <li>Tap the <strong style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Share size={14} /> Share</strong> icon at the bottom of Safari.</li>
                 <li>Scroll down and select <strong style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><PlusSquare size={14} /> Add to Home Screen</strong>.</li>
-                <li>Launch <strong>Attendly</strong> from your home screen.</li>
+                <li>Open <strong>Attendly</strong> from your home screen to log in.</li>
               </ol>
             </div>
           )}
@@ -262,7 +257,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
                 <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: '#CBD5E1', lineHeight: '1.8' }}>
                   <li>Tap the <strong>Chrome menu (⋮)</strong> top-right.</li>
                   <li>Tap <strong style={{ color: '#4ADE80' }}>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-                  <li>Launch <strong>Attendly</strong> from your apps list.</li>
+                  <li>Open <strong>Attendly</strong> from your home screen to log in.</li>
                 </ol>
               )}
             </div>
@@ -271,39 +266,14 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss }) => {
           {activeTab === 'desktop' && (
             <div>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.5rem', color: '#F43F5E' }}>
-                Desktop Browser Installation:
+                Desktop Setup Steps:
               </div>
               <p style={{ margin: 0, fontSize: '0.875rem', color: '#CBD5E1', lineHeight: '1.6' }}>
-                Click the <strong>Install Icon (⊕)</strong> located in the right side of your Chrome or Edge address bar to launch Attendly as a standalone desktop app.
+                Click the <strong>Install Icon (⊕)</strong> located in the right side of your Chrome or Edge address bar to install Attendly.
               </p>
             </div>
           )}
         </div>
-
-        {/* Action Button: Continue to Web */}
-        {onDismiss && (
-          <button
-            onClick={onDismiss}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#94A3B8',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
-          >
-            Continue in Web Browser <ArrowRight size={16} />
-          </button>
-        )}
 
         <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: '#64748B' }}>
           &copy; Attendly Geo-Verified Attendance Platform
