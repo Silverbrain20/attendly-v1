@@ -78,9 +78,9 @@ const ResetPassword: React.FC = () => {
         <div className="card">
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center' }}>
+            <Link to="/" aria-label="Go to homepage" style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center', cursor: 'pointer', textDecoration: 'none' }}>
               <Logo size="lg" animatePulse />
-            </div>
+            </Link>
             <h2 style={{ marginBottom: '0.25rem' }}>Reset password</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>
               {step === 1 ? 'Enter your account details' : 'Enter the 6-digit code and your new password'}

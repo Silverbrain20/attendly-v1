@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { apiRequest, getDeviceFingerprint } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, CheckCircle } from 'lucide-react';
@@ -86,9 +86,9 @@ const Verify: React.FC = () => {
       <div className="auth-card animate-slideUp">
         <div className="card" style={{ textAlign: 'center' }}>
           {/* Icon */}
-          <div style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center' }}>
+          <Link to="/" aria-label="Go to homepage" style={{ margin: '0 auto 1.25rem', display: 'inline-flex', justifyContent: 'center', cursor: 'pointer', textDecoration: 'none' }}>
             <Logo size="lg" animatePulse />
-          </div>
+          </Link>
 
           <h2 style={{ marginBottom: '0.375rem' }}>
             {type === 'device' ? 'Device Verification' : 'Verify your email'}
