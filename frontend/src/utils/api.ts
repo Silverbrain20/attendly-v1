@@ -18,8 +18,11 @@ async function fetchWithFailover(path: string, options: RequestInit): Promise<Re
   }
 }
 
+import { getDeviceId } from './pwa';
+
 export function getDeviceFingerprint() {
   return {
+    device_id: getDeviceId(),
     user_agent: navigator.userAgent,
     screen_resolution: `${window.screen.width}x${window.screen.height}`,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
