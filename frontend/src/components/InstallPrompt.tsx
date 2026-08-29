@@ -72,9 +72,23 @@ const InstallPrompt: React.FC = () => {
           pointerEvents: 'none'
         }} />
 
-        {/* Official Logo & Brand Header */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem', position: 'relative' }}>
-          <Logo size="xl" showText variant="white" animatePulse />
+        {/* Official Logo Badge & Brand Name */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.875rem', marginBottom: '1.25rem', position: 'relative' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '24px',
+            background: 'linear-gradient(135deg, rgba(108, 0, 34, 0.4) 0%, rgba(30, 41, 59, 0.9) 100%)',
+            border: '1.5px solid rgba(244, 63, 94, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 12px 30px rgba(108, 0, 34, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+          }}>
+            <img src="/icon.svg" alt="Attendly Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
+          </div>
+          
+          <Logo size="lg" showText variant="white" />
         </div>
 
         {/* Security Badge */}
