@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Logo from './Logo';
 import { Smartphone, Download, Share, PlusSquare, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
 
 const InstallPrompt: React.FC = () => {
@@ -72,23 +71,33 @@ const InstallPrompt: React.FC = () => {
           pointerEvents: 'none'
         }} />
 
-        {/* Official Logo Badge & Brand Name */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.875rem', marginBottom: '1.25rem', position: 'relative' }}>
+        {/* Single Main Logo Badge & Clean Brand Text */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', position: 'relative' }}>
           <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '24px',
-            background: 'linear-gradient(135deg, rgba(108, 0, 34, 0.4) 0%, rgba(30, 41, 59, 0.9) 100%)',
+            width: '84px',
+            height: '84px',
+            borderRadius: '26px',
+            background: 'linear-gradient(135deg, rgba(108, 0, 34, 0.5) 0%, rgba(30, 41, 59, 0.95) 100%)',
             border: '1.5px solid rgba(244, 63, 94, 0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 12px 30px rgba(108, 0, 34, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
           }}>
-            <img src="/icon.svg" alt="Attendly Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
+            <img src="/icon.svg" alt="Attendly Logo" style={{ width: '58px', height: '58px', objectFit: 'contain' }} />
           </div>
           
-          <Logo size="lg" showText variant="white" />
+          <h2 style={{
+            fontFamily: "'Outfit', 'Inter', sans-serif",
+            fontWeight: 800,
+            fontSize: '1.875rem',
+            letterSpacing: '-0.03em',
+            color: '#FFFFFF',
+            margin: 0,
+            lineHeight: 1
+          }}>
+            Attend<span style={{ color: '#F43F5E' }}>ly</span>
+          </h2>
         </div>
 
         {/* Security Badge */}
@@ -111,7 +120,7 @@ const InstallPrompt: React.FC = () => {
         </div>
 
         <h1 style={{
-          fontSize: '1.875rem',
+          fontSize: '1.75rem',
           fontWeight: 800,
           marginBottom: '0.75rem',
           letterSpacing: '-0.5px',
