@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { isPWA } from './utils/pwa';
+import InstallPrompt from './components/InstallPrompt';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -38,12 +40,19 @@ const AppRoutes: React.FC = () => (
   </Routes>
 );
 
-const App: React.FC = () => (
-  <AuthProvider>
-    <Router>
-      <AppRoutes />
-    </Router>
-  </AuthProvider>
-);
+const App: React.FC = () => {
+  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (!isPWA() && !isDev) {
+    return <InstallPrompt />;
+  }
+
+  return (
+    <AuthProvider>
+      <Router>
+        <AppRoutes />
+      </Router>
+    </AuthProvider>
+  );
+};
 
 export default App;

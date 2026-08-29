@@ -87,21 +87,48 @@ def login(request: Request, data: StudentLogin):
                 pass
             raise HTTPException(status_code=403, detail="Please verify your email address first.")
 
+        # PRD v3 Layer 3 Security Check: Active Class Session Lock
+        cursor.execute(
+            """
+            SELECT id FROM attendance_sessions
+            WHERE is_active = TRUE AND NOW() BETWEEN start_time AND end_time
+            """
+        )
+        active_session = cursor.fetchone()
+
         stored_fp = user["device_fingerprint"]
         if isinstance(stored_fp, str):
             stored_fp = json.loads(stored_fp)
 
-        # Flow 3 Trigger: Device fingerprint mismatch triggers sign_in_with_otp
-        if not check_fingerprint_match(stored_fp, data.device_fingerprint):
-            try:
-                supabase.auth.sign_in_with_otp({"email": user["email"]})
-            except Exception as e:
-                print(f"[SUPABASE SIGN_IN_WITH_OTP WARNING] {e}")
-            return {
-                "status": "needs_device_verification",
-                "email": user["email"],
-                "message": "New device detected. A verification code has been sent to your email."
-            }
+        if active_session:
+            if not stored_fp:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Login is not allowed during an active class session. Try again after class ends."
+                )
+            if not check_fingerprint_match(stored_fp, data.device_fingerprint):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You cannot log in from a different device during an active class session."
+                )
+            # Same device during session — allow re-login for crash recovery
+        else:
+            # Outside active session — first login registers device, different device triggers OTP re-verification
+            if not stored_fp:
+                cursor.execute(
+                    "UPDATE users SET device_fingerprint = %s WHERE id = %s",
+                    (json.dumps(data.device_fingerprint), user["id"])
+                )
+            elif not check_fingerprint_match(stored_fp, data.device_fingerprint):
+                try:
+                    supabase.auth.sign_in_with_otp({"email": user["email"]})
+                except Exception as e:
+                    print(f"[SUPABASE SIGN_IN_WITH_OTP WARNING] {e}")
+                return {
+                    "status": "needs_device_verification",
+                    "email": user["email"],
+                    "message": "New device detected. A verification code has been sent to your email."
+                }
 
         user_payload = {"user_id": user["id"], "role": user["role"], "token_version": user["token_version"]}
         access_token = create_access_token(user_payload)
