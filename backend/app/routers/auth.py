@@ -36,11 +36,21 @@ def register(request: Request, data: StudentRegister):
                 "email": data.email,
                 "password": data.password
             })
+            # Always issue signup resend to guarantee 6-digit OTP delivery via SMTP
+            try:
+                supabase.auth.resend({"type": "signup", "email": data.email})
+            except Exception:
+                pass
         except Exception as e:
             err = str(e)
-            if "already registered" in err.lower():
-                raise HTTPException(status_code=400, detail="Email already registered")
-            raise HTTPException(status_code=400, detail=f"Registration failed: {err}")
+            if "already registered" in err.lower() or "already exists" in err.lower():
+                # Email existed in Supabase Auth (e.g. from deleted DB account), explicitly trigger signup OTP
+                try:
+                    supabase.auth.resend({"type": "signup", "email": data.email})
+                except Exception as resend_err:
+                    raise HTTPException(status_code=400, detail="Email already registered in system")
+            else:
+                raise HTTPException(status_code=400, detail=f"Registration failed: {err}")
 
         # Store profile into PostgreSQL DB
         cursor.execute(
