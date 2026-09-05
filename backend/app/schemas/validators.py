@@ -8,7 +8,6 @@ class StudentRegister(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     matric_number: str = Field(..., min_length=3, max_length=30)
     phone_number: str = Field(..., min_length=7, max_length=20)
-    secret_answer: Optional[str] = Field(None, max_length=200)
     device_fingerprint: Optional[Dict] = None
 
 
@@ -25,7 +24,7 @@ class VerifyEmail(BaseModel):
 
 class ResendOtp(BaseModel):
     email: EmailStr = Field(..., max_length=254)
-    type: str = Field('email', max_length=20)
+    type: str = Field("email", max_length=20)
 
 
 class VerifyDevice(BaseModel):

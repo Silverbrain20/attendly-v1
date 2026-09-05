@@ -40,20 +40,19 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
         center_lat = float(sess["center_lat"]) if sess["center_lat"] is not None else 0.0
         center_lng = float(sess["center_lng"]) if sess["center_lng"] is not None else 0.0
 
-        # Guarantee 0.0m distance check-in for the session creator (Class Rep)
+        # Guarantee 0.0m for the session creator (Class Rep)
         if sess["created_by"] == user["user_id"] and center_lat != 0.0 and center_lng != 0.0:
             data.latitude = center_lat
             data.longitude = center_lng
 
-        # Layer 4 Geofence Hard Block (50m floor)
         dist_m = haversine_distance(data.latitude, data.longitude, center_lat, center_lng)
         if dist_m > GEOFENCE_RADIUS_METRES:
             raise HTTPException(
                 status_code=403,
-                detail=f"You are {dist_m:.0f}m from the classroom. You must be within {int(GEOFENCE_RADIUS_METRES)}m to mark attendance."
+                detail=f"You are {dist_m:.0f}m from the classroom. You must be within {int(GEOFENCE_RADIUS_METRES)}m.",
             )
 
-        # Layer 5 Risk Scoring Engine
+        # Risk scoring — batch fetch IPs once
         cursor.execute(
             "SELECT client_ip FROM attendance_records WHERE session_id = %s AND client_ip IS NOT NULL",
             (data.session_id,)
@@ -65,13 +64,13 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
             gps_accuracy=gps_accuracy,
             session_start=sess.get("start_time"),
             client_ip=client_ip,
-            session_ips=session_ips
+            session_ips=session_ips,
         )
 
         if risk_level == "block":
             raise HTTPException(
                 status_code=403,
-                detail="Submission flagged as high risk. Contact your class rep for manual attendance."
+                detail="Submission flagged as high risk. Contact your class rep for manual attendance.",
             )
 
         cursor.execute(
@@ -82,11 +81,9 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
 
         if not res:
             raise HTTPException(status_code=500, detail="Failed to process attendance submission")
-
         if not res["success"]:
             raise HTTPException(status_code=400, detail=res["message"])
 
-        # Store risk metadata
         try:
             cursor.execute(
                 """
@@ -105,8 +102,8 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
         "data": {
             "distance_meters": round(dist_m, 1),
             "risk_score": risk_score,
-            "risk_level": risk_level
-        }
+            "risk_level": risk_level,
+        },
     }
 
 
@@ -122,6 +119,7 @@ def my_attendance_history(user: dict = Depends(get_current_user)):
             JOIN courses c ON s.course_id = c.id
             WHERE ar.student_id = %s
             ORDER BY ar.marked_at DESC
+            LIMIT 200
             """,
             (user["user_id"],)
         )
@@ -149,58 +147,48 @@ def get_session_attendance(session_id: str, user: dict = Depends(get_current_use
 
 @router.get("/my-summary")
 def get_my_summary(user: dict = Depends(get_current_user)):
+    """Single aggregate query replacing the previous N×3 per-course query loop."""
     with db.get_cursor() as cursor:
         cursor.execute(
             """
-            SELECT ce.course_id, c.course_code, c.course_title
+            SELECT
+                c.id                                                            AS course_id,
+                c.course_code,
+                c.course_title,
+                COUNT(DISTINCT s.id)                                            AS total_classes,
+                COUNT(DISTINCT ar.session_id)                                   AS attended,
+                COUNT(DISTINCT mo.id)                                           AS manual_overrides
             FROM course_enrollments ce
-            JOIN courses c ON ce.course_id = c.id
+            JOIN courses c ON c.id = ce.course_id
+            LEFT JOIN attendance_sessions s
+                ON s.course_id = c.id AND (s.ended_at IS NOT NULL OR s.end_time < NOW())
+            LEFT JOIN attendance_records ar
+                ON ar.session_id = s.id AND ar.student_id = ce.user_id
+            LEFT JOIN manual_overrides mo
+                ON mo.session_id = s.id AND mo.student_id = ce.user_id
             WHERE ce.user_id = %s
+            GROUP BY c.id, c.course_code, c.course_title
+            ORDER BY c.course_code
             """,
             (user["user_id"],)
         )
-        enrollments = cursor.fetchall()
+        rows = cursor.fetchall()
 
-        summary_data = []
-        for course in enrollments:
-            cursor.execute(
-                "SELECT COUNT(*) as total FROM attendance_sessions WHERE course_id = %s AND (ended_at IS NOT NULL OR end_time < NOW())",
-                (course["course_id"],)
-            )
-            total_sessions = cursor.fetchone()["total"]
+    summary = []
+    for row in rows:
+        total = row["total_classes"] or 0
+        attended = row["attended"] or 0
+        absences = max(0, total - attended)
+        pct = round(attended / total * 100, 1) if total > 0 else 100.0
+        summary.append({
+            "course_id": row["course_id"],
+            "course_code": row["course_code"],
+            "course_title": row["course_title"],
+            "total_classes": total,
+            "attended": attended,
+            "absences": absences,
+            "attendance_percentage": pct,
+            "manual_overrides": row["manual_overrides"] or 0,
+        })
 
-            cursor.execute(
-                """
-                SELECT COUNT(*) as attended FROM attendance_records ar
-                JOIN attendance_sessions s ON ar.session_id = s.id
-                WHERE s.course_id = %s AND ar.student_id = %s
-                """,
-                (course["course_id"], user["user_id"])
-            )
-            attended = cursor.fetchone()["attended"]
-
-            cursor.execute(
-                """
-                SELECT COUNT(*) as overrides FROM manual_overrides mo
-                JOIN attendance_sessions s ON mo.session_id = s.id
-                WHERE s.course_id = %s AND mo.student_id = %s
-                """,
-                (course["course_id"], user["user_id"])
-            )
-            overrides_count = cursor.fetchone()["overrides"]
-
-            absences = max(0, total_sessions - attended)
-            attendance_pct = round((attended / total_sessions * 100), 1) if total_sessions > 0 else 100.0
-
-            summary_data.append({
-                "course_id": course["course_id"],
-                "course_code": course["course_code"],
-                "course_title": course["course_title"],
-                "total_classes": total_sessions,
-                "attended": attended,
-                "absences": absences,
-                "attendance_percentage": attendance_pct,
-                "manual_overrides": overrides_count
-            })
-
-    return {"status": "success", "data": summary_data}
+    return {"status": "success", "data": summary}

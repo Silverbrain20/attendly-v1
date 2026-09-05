@@ -7,6 +7,7 @@ import csv
 
 router = APIRouter(prefix="/api/export", tags=["Exports"])
 
+
 @router.get("/session/{session_id}")
 def export_session_attendance(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
@@ -35,10 +36,7 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
         )
         students = cursor.fetchall()
 
-        cursor.execute(
-            "SELECT * FROM attendance_records WHERE session_id = %s",
-            (session_id,)
-        )
+        cursor.execute("SELECT * FROM attendance_records WHERE session_id = %s", (session_id,))
         records = {r["student_id"]: r for r in cursor.fetchall()}
 
         cursor.execute(
@@ -49,32 +47,24 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
 
     output = io.StringIO()
     writer = csv.writer(output)
-    
     writer.writerow([
-        "Full Name", "Matric Number", "Email", "Phone Number", 
+        "Full Name", "Matric Number", "Email", "Phone Number",
         "Status", "Method", "Distance (meters)", "Manual Override Reason", "Time Marked"
     ])
 
     for s in students:
-        student_id = s["id"]
-        record = records.get(student_id)
-        override_reason = overrides.get(student_id, "")
-        
-        status = "Absent"
-        method = "N/A"
-        distance = "N/A"
-        time_marked = "N/A"
-
+        sid = s["id"]
+        record = records.get(sid)
+        override_reason = overrides.get(sid, "")
+        status, method, distance, time_marked = "Absent", "N/A", "N/A", "N/A"
         if record:
             status = "Present"
             time_marked = record["marked_at"].strftime("%Y-%m-%d %H:%M:%S")
             if record["is_manual_override"]:
-                method = "Manual Override"
-                distance = "0.0"
+                method, distance = "Manual Override", "0.0"
             else:
                 method = "Geo-Verified"
                 distance = f"{record['distance_meters']:.1f}" if record["distance_meters"] is not None else "Unknown"
-
         writer.writerow([
             s["full_name"], s["matric_number"], s["email"], s["phone_number"],
             status, method, distance, override_reason, time_marked
@@ -83,7 +73,6 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
     output.seek(0)
     session_date = session["start_time"].strftime("%Y-%m-%d")
     filename = f"{session['course_code']}_attendance_{session_date}.csv"
-    
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
@@ -99,13 +88,14 @@ def export_course_attendance(course_id: str, user: dict = Depends(get_class_rep_
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
+        # Count total completed sessions
         cursor.execute(
-            "SELECT id, start_time FROM attendance_sessions WHERE course_id = %s AND (ended_at IS NOT NULL OR end_time < NOW()) ORDER BY start_time",
+            "SELECT COUNT(*) AS total FROM attendance_sessions WHERE course_id = %s AND (ended_at IS NOT NULL OR end_time < NOW())",
             (course_id,)
         )
-        sessions = cursor.fetchall()
-        total_sessions = len(sessions)
+        total_sessions = cursor.fetchone()["total"]
 
+        # All enrolled students
         cursor.execute(
             """
             SELECT u.id, u.full_name, u.matric_number, u.email, u.phone_number
@@ -118,9 +108,24 @@ def export_course_attendance(course_id: str, user: dict = Depends(get_class_rep_
         )
         students = cursor.fetchall()
 
+        # Single batch query for all student stats — eliminates per-student cursor loop
+        cursor.execute(
+            """
+            SELECT
+                ar.student_id,
+                COUNT(*)                                              AS attended,
+                COUNT(CASE WHEN ar.is_manual_override THEN 1 END)    AS overrides
+            FROM attendance_records ar
+            JOIN attendance_sessions sess ON ar.session_id = sess.id
+            WHERE sess.course_id = %s
+            GROUP BY ar.student_id
+            """,
+            (course_id,)
+        )
+        stats_map = {row["student_id"]: row for row in cursor.fetchall()}
+
     output = io.StringIO()
     writer = csv.writer(output)
-
     writer.writerow([
         "Full Name", "Matric Number", "Email", "Phone Number",
         "Attended Classes", "Total Sessions Held", "Absences",
@@ -128,35 +133,20 @@ def export_course_attendance(course_id: str, user: dict = Depends(get_class_rep_
     ])
 
     for s in students:
-        student_id = s["id"]
-        with db.get_cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT COUNT(*) as attended,
-                       COUNT(CASE WHEN is_manual_override THEN 1 END) as overrides
-                FROM attendance_records ar
-                JOIN attendance_sessions sess ON ar.session_id = sess.id
-                WHERE sess.course_id = %s AND ar.student_id = %s
-                """,
-                (course_id, student_id)
-            )
-            stats = cursor.fetchone()
-
+        stats = stats_map.get(s["id"])
         attended = stats["attended"] if stats else 0
-        overrides = stats["overrides"] if stats else 0
+        ov = stats["overrides"] if stats else 0
         absences = max(0, total_sessions - attended)
         rate = (attended / total_sessions * 100) if total_sessions > 0 else 100.0
         eligibility = "Eligible (>= 75%)" if rate >= 75.0 else "Ineligible (< 75%)"
-
         writer.writerow([
             s["full_name"], s["matric_number"], s["email"], s["phone_number"],
             attended, total_sessions, absences,
-            f"{rate:.1f}%", overrides, eligibility
+            f"{rate:.1f}%", ov, eligibility
         ])
 
     output.seek(0)
     filename = f"{course['course_code']}_full_attendance_report.csv"
-
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",

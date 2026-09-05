@@ -38,24 +38,28 @@ const PWAGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const PWAVisibilityManager: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { refreshUser } = useAuth();
+
   React.useEffect(() => {
-    let lastActive = Date.now();
+    let hiddenAt: number | null = null;
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const elapsed = Date.now() - lastActive;
-        // Auto-refresh when opening or returning to the PWA app from background
-        if (elapsed > 2000) {
-          window.location.reload();
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible' && hiddenAt !== null) {
+        const elapsed = Date.now() - hiddenAt;
+        // Soft token revalidation after 15+ minutes in background
+        // avoids spurious full-page reloads on normal tab switching
+        if (elapsed > 15 * 60 * 1000) {
+          refreshUser();
         }
-      } else {
-        lastActive = Date.now();
+        hiddenAt = null;
       }
     };
 
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refreshUser]);
 
   return <>{children}</>;
 };
