@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.config.database import db
 from app.schemas.validators import SessionCreate
 from app.middleware.auth import get_current_user, get_class_rep_user
@@ -48,7 +48,7 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
                 detail=f"An active attendance session for course code {course_code} is already running. Please end it first."
             )
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         end_time = start_time + timedelta(minutes=data.duration_minutes)
 
         cursor.execute(
@@ -60,6 +60,12 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
             (data.course_id, user["user_id"], data.latitude, data.longitude, data.geofence_radius_m, start_time, end_time)
         )
         session = cursor.fetchone()
+
+        # Ensure the class rep is enrolled in their own course so mark_attendance_atomic doesn't reject them
+        cursor.execute(
+            "INSERT INTO course_enrollments (user_id, course_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (user["user_id"], data.course_id)
+        )
 
     session_link = f"{settings.FRONTEND_URL}/attend/{session['id']}"
     qr_data_url = generate_qr_code_data_url(session["id"])

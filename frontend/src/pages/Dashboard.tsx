@@ -28,8 +28,8 @@ const Dashboard: React.FC = () => {
   const [newCourseTitle, setNewCourseTitle] = useState('');
 
   const [showSessionForm, setShowSessionForm] = useState(false);
-  const [sessionRadius, setSessionRadius] = useState(100);
-  const [sessionDuration, setSessionDuration] = useState(120);
+  const [sessionRadius, setSessionRadius] = useState(50);
+  const [sessionDuration, setSessionDuration] = useState(30);
 
   const [overrideStudentId, setOverrideStudentId] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
@@ -791,12 +791,12 @@ const Dashboard: React.FC = () => {
                     <div style={{ flex: '1 1 180px' }}>
                       <label className="form-label" htmlFor="new-code">Course Code</label>
                       <input id="new-code" type="text" className="form-input" value={newCourseCode}
-                        onChange={(e) => setNewCourseCode(e.target.value)} placeholder="e.g. CSC301" required />
+                        onChange={(e) => setNewCourseCode(e.target.value)} placeholder="e.g. TCS101" required />
                     </div>
                     <div style={{ flex: '2 1 260px' }}>
                       <label className="form-label" htmlFor="new-title">Course Title</label>
                       <input id="new-title" type="text" className="form-input" value={newCourseTitle}
-                        onChange={(e) => setNewCourseTitle(e.target.value)} placeholder="e.g. Database Design" required />
+                        onChange={(e) => setNewCourseTitle(e.target.value)} placeholder="e.g. Network Design" required />
                     </div>
                   </div>
                   <button type="submit" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
