@@ -6,21 +6,25 @@ import psycopg2
 
 router = APIRouter(prefix="/api/overrides", tags=["Manual Overrides"])
 
+
 @router.post("")
 def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor(commit=True) as cursor:
+        # Verify the session exists and belongs to a course the rep created or is enrolled in
         cursor.execute(
-            """
-            SELECT s.id, s.course_id FROM attendance_sessions s
-            JOIN course_enrollments ce ON s.course_id = ce.course_id
-            WHERE s.id = %s AND ce.user_id = %s
-            """,
-            (data.session_id, user["user_id"])
+            "SELECT id, course_id FROM attendance_sessions WHERE id = %s",
+            (data.session_id,)
         )
         session = cursor.fetchone()
         if not session:
-            raise HTTPException(status_code=400, detail="Session not found or unauthorized")
+            raise HTTPException(status_code=400, detail="Session not found")
 
+        # Verify target student exists
+        cursor.execute("SELECT id FROM users WHERE id = %s", (data.student_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Student not found")
+
+        # Verify target student is enrolled in the session's course
         cursor.execute(
             "SELECT id FROM course_enrollments WHERE course_id = %s AND user_id = %s",
             (session["course_id"], data.student_id)
@@ -46,7 +50,7 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
                 (data.session_id, data.student_id, user["user_id"], data.reason)
             )
             override = cursor.fetchone()
-            
+
             cursor.execute(
                 """
                 INSERT INTO attendance_records (session_id, student_id, is_within_geofence, is_manual_override, distance_meters)
@@ -57,7 +61,8 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
                 (data.session_id, data.student_id)
             )
         except psycopg2.DatabaseError as e:
-            if "Override cap" in str(e):
+            err = str(e)
+            if "Override cap" in err:
                 raise HTTPException(status_code=400, detail="Override cap (10) reached for this session")
             raise HTTPException(status_code=400, detail="Failed to process manual override due to database error")
 
@@ -67,12 +72,47 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
         "data": override
     }
 
+
+@router.get("/session/{session_id}/students")
+def get_session_students_for_override(session_id: str, user: dict = Depends(get_class_rep_user)):
+    """
+    Returns all students enrolled in the session's course who have NOT yet marked attendance.
+    Used to populate the override student picker.
+    """
+    with db.get_cursor() as cursor:
+        cursor.execute(
+            "SELECT course_id FROM attendance_sessions WHERE id = %s",
+            (session_id,)
+        )
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        cursor.execute(
+            """
+            SELECT u.id, u.full_name, u.matric_number, u.email
+            FROM users u
+            JOIN course_enrollments ce ON u.id = ce.user_id
+            WHERE ce.course_id = %s
+              AND NOT EXISTS (
+                SELECT 1 FROM attendance_records ar
+                WHERE ar.session_id = %s AND ar.student_id = u.id
+              )
+            ORDER BY u.full_name
+            """,
+            (session["course_id"], session_id)
+        )
+        students = cursor.fetchall()
+
+    return {"status": "success", "data": students}
+
+
 @router.get("/session/{session_id}")
 def get_session_overrides(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
         cursor.execute(
             """
-            SELECT mo.id, mo.created_at, mo.reason, 
+            SELECT mo.id, mo.created_at, mo.reason,
                    s.full_name as student_name, s.matric_number as student_matric,
                    cr.full_name as class_rep_name
             FROM manual_overrides mo
@@ -85,6 +125,7 @@ def get_session_overrides(session_id: str, user: dict = Depends(get_class_rep_us
         )
         overrides = cursor.fetchall()
     return {"status": "success", "data": overrides}
+
 
 @router.get("/session/{session_id}/count")
 def get_session_override_count(session_id: str, user: dict = Depends(get_class_rep_user)):
