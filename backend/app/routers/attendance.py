@@ -145,46 +145,6 @@ def get_session_attendance(session_id: str, user: dict = Depends(get_current_use
     return {"status": "success", "data": records}
 
 
-@router.get("/session/{session_id}/report")
-def get_session_full_report(session_id: str, user: dict = Depends(get_current_user)):
-    """
-    Returns ALL enrolled students for a session with present/absent status.
-    Used by the session report modal in the dashboard.
-    """
-    with db.get_cursor() as cursor:
-        # Get the course for this session
-        cursor.execute(
-            "SELECT course_id FROM attendance_sessions WHERE id = %s",
-            (session_id,)
-        )
-        sess = cursor.fetchone()
-        if not sess:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        cursor.execute(
-            """
-            SELECT
-                u.id,
-                u.full_name,
-                u.matric_number,
-                ar.marked_at,
-                ar.is_within_geofence,
-                ar.is_manual_override,
-                ar.distance_meters,
-                CASE WHEN ar.id IS NOT NULL THEN TRUE ELSE FALSE END AS is_present
-            FROM users u
-            JOIN course_enrollments ce ON u.id = ce.user_id
-            LEFT JOIN attendance_records ar
-                ON ar.session_id = %s AND ar.student_id = u.id
-            WHERE ce.course_id = %s
-            ORDER BY u.full_name
-            """,
-            (session_id, sess["course_id"])
-        )
-        rows = cursor.fetchall()
-    return {"status": "success", "data": rows}
-
-
 @router.get("/my-summary")
 def get_my_summary(user: dict = Depends(get_current_user)):
     """Single aggregate query replacing the previous N×3 per-course query loop."""

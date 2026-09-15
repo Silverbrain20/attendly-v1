@@ -61,12 +61,6 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
         )
         session = cursor.fetchone()
 
-        # Ensure the class rep is enrolled in their own course so they can mark attendance
-        cursor.execute(
-            "INSERT INTO course_enrollments (user_id, course_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            (user["user_id"], data.course_id)
-        )
-
     session_link = f"{settings.FRONTEND_URL}/attend/{session['id']}"
     qr_data_url = generate_qr_code_data_url(session["id"])
 

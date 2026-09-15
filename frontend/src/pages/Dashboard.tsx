@@ -185,8 +185,7 @@ const Dashboard: React.FC = () => {
     setViewSessionDetail(sess);
     setLoadingModalLogs(true);
     try {
-      // Use full-report endpoint so ALL enrolled students appear (present + absent)
-      const res = await apiRequest('GET', `/api/attendance/session/${sess.id}/report`);
+      const res = await apiRequest('GET', `/api/attendance/session/${sess.id}`);
       setSessionAttendees(res.data || []);
     } catch (e: any) {
       setActionError(e.message || 'Failed to load session attendees');
@@ -243,8 +242,7 @@ const Dashboard: React.FC = () => {
 
         const [countRes, studentsRes, overridesRes, attendeesRes] = await Promise.all([
           apiRequest('GET', `/api/overrides/session/${session.id}/count`),
-          // Use the override-specific endpoint that returns absent students only
-          apiRequest('GET', `/api/overrides/session/${session.id}/students`).catch(() => ({ data: [] })),
+          apiRequest('GET', `/api/courses/${courseId}/students`),
           apiRequest('GET', `/api/overrides/session/${session.id}`),
           apiRequest('GET', `/api/attendance/session/${session.id}`).catch(() => ({ data: [] })),
         ]);
@@ -1200,30 +1198,23 @@ const Dashboard: React.FC = () => {
                 borderBottom: '1px solid var(--border)'
               }}>
                 <div style={{ background: 'var(--bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                  <div className="stat-label">Total Enrolled</div>
+                  <div className="stat-label">Total Verified</div>
                   <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
                     {sessionAttendees.length} <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 400 }}>Students</span>
                   </div>
                 </div>
 
                 <div style={{ background: 'var(--bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                  <div className="stat-label">Present</div>
+                  <div className="stat-label">Geo-Verified</div>
                   <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--success)' }}>
-                    {sessionAttendees.filter((a: any) => a.is_present && !a.is_manual_override).length} <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 400 }}>Geo-Verified</span>
+                    {sessionAttendees.filter(a => !a.is_manual_override).length}
                   </div>
                 </div>
 
                 <div style={{ background: 'var(--bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                   <div className="stat-label">Manual Overrides</div>
                   <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--warning)' }}>
-                    {sessionAttendees.filter((a: any) => a.is_manual_override).length}
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                  <div className="stat-label">Absent</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--danger, #ef4444)' }}>
-                    {sessionAttendees.filter((a: any) => !a.is_present).length}
+                    {sessionAttendees.filter(a => a.is_manual_override).length}
                   </div>
                 </div>
               </div>
@@ -1238,16 +1229,16 @@ const Dashboard: React.FC = () => {
                 ) : sessionAttendees.length === 0 ? (
                   <div className="empty-state" style={{ padding: '3rem 2rem' }}>
                     <div className="empty-state-icon"><Inbox size={28} /></div>
-                    <h3 style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 500 }}>No students enrolled</h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>No students are enrolled in this course yet.</p>
+                    <h3 style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 500 }}>No check-ins recorded</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>No students have checked into this session yet.</p>
                   </div>
                 ) : (
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Student</th>
+                        <th>Student Details</th>
                         <th>Matric Number</th>
-                        <th>Status</th>
+                        <th>Verification Method</th>
                         <th style={{ textAlign: 'right' }}>Distance</th>
                         <th style={{ textAlign: 'right' }}>Check-in Time</th>
                       </tr>
@@ -1262,8 +1253,10 @@ const Dashboard: React.FC = () => {
                           <tr key={i}>
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div className="avatar-circle" style={!att.is_present ? { background: 'var(--bg-subtle)', color: 'var(--text-muted)' } : {}}>{initials}</div>
-                                <strong style={{ display: 'block', color: att.is_present ? 'var(--text)' : 'var(--text-muted)' }}>{att.full_name}</strong>
+                                <div className="avatar-circle">{initials}</div>
+                                <div>
+                                  <strong style={{ display: 'block', color: 'var(--text)' }}>{att.full_name}</strong>
+                                </div>
                               </div>
                             </td>
                             <td>
@@ -1272,9 +1265,7 @@ const Dashboard: React.FC = () => {
                               </code>
                             </td>
                             <td>
-                              {!att.is_present ? (
-                                <span className="badge badge-danger" style={{ gap: '0.375rem', fontSize: '0.75rem' }}>Absent</span>
-                              ) : att.is_manual_override ? (
+                              {att.is_manual_override ? (
                                 <span className="badge badge-warning" style={{ gap: '0.375rem', fontSize: '0.75rem' }}>
                                   <Shield size={12} /> Manual Override
                                 </span>
@@ -1285,12 +1276,10 @@ const Dashboard: React.FC = () => {
                               )}
                             </td>
                             <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                              {att.is_present ? (att.distance_meters !== null ? `${Number(att.distance_meters).toFixed(1)}m` : '0.0m') : '—'}
+                              {att.distance_meters !== null ? `${Number(att.distance_meters).toFixed(1)}m` : '0.0m'}
                             </td>
                             <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
-                              {att.is_present && att.marked_at
-                                ? new Date(att.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                : '—'}
+                              {new Date(att.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </td>
                           </tr>
                         );
