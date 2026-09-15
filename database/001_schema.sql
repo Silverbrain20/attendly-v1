@@ -51,7 +51,7 @@ CREATE TABLE attendance_sessions (
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
     location_point GEOGRAPHY(Point, 4326),
-    geofence_radius_m INTEGER NOT NULL DEFAULT 100,
+    geofence_radius_m INTEGER NOT NULL DEFAULT 50,
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
     is_flagged BOOLEAN NOT NULL DEFAULT FALSE, -- Flagged for review when overrides >= 10

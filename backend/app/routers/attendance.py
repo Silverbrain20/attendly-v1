@@ -17,9 +17,9 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
             """
-            SELECT s.id, s.course_id, s.created_by, s.start_time, s.end_time, s.ended_at,
-                   ST_Y(s.location_point::geometry) as center_lat,
-                   ST_X(s.location_point::geometry) as center_lng
+            SELECT s.id, s.course_id, s.created_by, s.start_time, s.end_time, s.ended_at, s.geofence_radius_m,
+                   s.latitude as center_lat,
+                   s.longitude as center_lng
             FROM attendance_sessions s
             WHERE s.id = %s
             """,
@@ -37,19 +37,20 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
             (user["user_id"], sess["course_id"])
         )
 
-        center_lat = float(sess["center_lat"]) if sess["center_lat"] is not None else 0.0
-        center_lng = float(sess["center_lng"]) if sess["center_lng"] is not None else 0.0
+        center_lat = float(sess["center_lat"]) if sess.get("center_lat") is not None else 0.0
+        center_lng = float(sess["center_lng"]) if sess.get("center_lng") is not None else 0.0
 
-        # Guarantee 0.0m for the session creator (Class Rep)
-        if sess["created_by"] == user["user_id"] and center_lat != 0.0 and center_lng != 0.0:
+        # Guarantee exact session center coordinates for the session creator (Class Rep)
+        if sess["created_by"] == user["user_id"]:
             data.latitude = center_lat
             data.longitude = center_lng
 
         dist_m = haversine_distance(data.latitude, data.longitude, center_lat, center_lng)
-        if dist_m > GEOFENCE_RADIUS_METRES:
+        geofence_limit = float(sess.get("geofence_radius_m") or GEOFENCE_RADIUS_METRES)
+        if dist_m > geofence_limit:
             raise HTTPException(
                 status_code=403,
-                detail=f"You are {dist_m:.0f}m from the classroom. You must be within {int(GEOFENCE_RADIUS_METRES)}m.",
+                detail=f"You are {dist_m:.0f}m from the classroom. You must be within {int(geofence_limit)}m.",
             )
 
         # Risk scoring — batch fetch IPs once

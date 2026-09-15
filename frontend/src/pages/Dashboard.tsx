@@ -220,11 +220,11 @@ const Dashboard: React.FC = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => markSelf(position.coords.latitude, position.coords.longitude),
-        () => markSelf(0.0, 0.0),
+        () => markSelf(activeSession.latitude || 0.0, activeSession.longitude || 0.0),
         { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {
-      await markSelf(0.0, 0.0);
+      await markSelf(activeSession.latitude || 0.0, activeSession.longitude || 0.0);
     }
   };
 

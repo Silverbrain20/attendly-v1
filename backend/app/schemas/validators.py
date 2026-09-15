@@ -53,8 +53,8 @@ class SessionCreate(BaseModel):
     course_id: str = Field(..., max_length=50)
     latitude: float
     longitude: float
-    geofence_radius_m: Optional[int] = Field(100, ge=10, le=5000)
-    duration_minutes: int = Field(120, ge=15, le=720)
+    geofence_radius_m: Optional[int] = Field(50, ge=10, le=5000)
+    duration_minutes: int = Field(30, ge=15, le=720)
 
 
 class AttendanceMark(BaseModel):

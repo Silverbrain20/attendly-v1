@@ -2,7 +2,7 @@
 -- Attendly Spatial & Business Logic Functions
 -- ============================================
 
--- Check if a student's coordinate is within a session's geofence (100m)
+-- Check if a student's coordinate is within a session's geofence
 CREATE OR REPLACE FUNCTION check_geofence(
     p_session_id UUID,
     p_lat DOUBLE PRECISION,
@@ -17,12 +17,17 @@ DECLARE
     v_student_geom GEOGRAPHY;
     v_radius INTEGER;
 BEGIN
-    SELECT location_point, geofence_radius_m INTO v_session_geom, v_radius
+    SELECT COALESCE(location_point, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography), geofence_radius_m
+    INTO v_session_geom, v_radius
     FROM attendance_sessions
     WHERE id = p_session_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Session % not found', p_session_id;
+    END IF;
+
+    IF v_session_geom IS NULL THEN
+        v_session_geom := ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography;
     END IF;
 
     v_student_geom := ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography;
@@ -56,7 +61,7 @@ DECLARE
     v_end_time TIMESTAMPTZ;
 BEGIN
     -- Check if session exists and is active (not ended manually, and within start/end time)
-    SELECT course_id, end_time, (ended_at IS NULL AND start_time <= NOW() AND end_time >= NOW())
+    SELECT course_id, end_time, (ended_at IS NULL AND start_time <= (NOW() + INTERVAL '1 minute') AND end_time >= NOW())
     INTO v_course_id, v_end_time, v_session_active
     FROM attendance_sessions
     WHERE id = p_session_id;

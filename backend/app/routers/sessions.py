@@ -48,8 +48,8 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
                 detail=f"An active attendance session for course code {course_code} is already running. Please end it first."
             )
 
-        start_time = datetime.now(timezone.utc)
-        end_time = start_time + timedelta(minutes=data.duration_minutes)
+        start_time = datetime.now(timezone.utc) - timedelta(seconds=10)
+        end_time = start_time + timedelta(minutes=data.duration_minutes) + timedelta(seconds=10)
 
         cursor.execute(
             """
