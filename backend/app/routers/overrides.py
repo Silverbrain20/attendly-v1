@@ -1,3 +1,4 @@
+from app.utils.permissions import require_session_owner
 from fastapi import APIRouter, HTTPException, Depends
 from app.config.database import db
 from app.schemas.validators import OverrideCreate
@@ -9,11 +10,13 @@ router = APIRouter(prefix="/api/overrides", tags=["Manual Overrides"])
 @router.post("")
 def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor(commit=True) as cursor:
+        require_session_owner(cursor, data.session_id, user)
         cursor.execute(
             """
             SELECT s.id, s.course_id FROM attendance_sessions s
             JOIN course_enrollments ce ON s.course_id = ce.course_id
             WHERE s.id = %s AND ce.user_id = %s
+            FOR UPDATE OF s
             """,
             (data.session_id, user["user_id"])
         )
@@ -70,6 +73,7 @@ def create_override(data: OverrideCreate, user: dict = Depends(get_class_rep_use
 @router.get("/session/{session_id}")
 def get_session_overrides(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
+        require_session_owner(cursor, session_id, user)
         cursor.execute(
             """
             SELECT mo.id, mo.created_at, mo.reason, 
@@ -89,6 +93,7 @@ def get_session_overrides(session_id: str, user: dict = Depends(get_class_rep_us
 @router.get("/session/{session_id}/count")
 def get_session_override_count(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
+        require_session_owner(cursor, session_id, user)
         cursor.execute(
             "SELECT COUNT(*) as count FROM manual_overrides WHERE session_id = %s",
             (session_id,)

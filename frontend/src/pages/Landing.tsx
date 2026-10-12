@@ -138,7 +138,7 @@ const Landing: React.FC = () => {
                 </div>
                 <h3 style={{ marginBottom: '0.5rem' }}>GPS Geofencing</h3>
                 <p style={{ fontSize: '0.9375rem' }}>
-                  Students must be physically within the lecture hall's 100m geofence to mark attendance. Verified with high-precision coordinates.
+                  Check in within the session's configured geofence using your device's reported location.
                 </p>
               </div>
 

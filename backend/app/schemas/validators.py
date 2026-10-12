@@ -51,16 +51,17 @@ class CourseCreate(BaseModel):
 
 class SessionCreate(BaseModel):
     course_id: str = Field(..., max_length=50)
-    latitude: float
-    longitude: float
+    latitude: float = Field(..., ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(..., ge=-180, le=180, allow_inf_nan=False)
     geofence_radius_m: Optional[int] = Field(50, ge=10, le=5000)
     duration_minutes: int = Field(30, ge=15, le=720)
 
 
 class AttendanceMark(BaseModel):
     session_id: str = Field(..., max_length=50)
-    latitude: float
-    longitude: float
+    latitude: float = Field(..., ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(..., ge=-180, le=180, allow_inf_nan=False)
+    gps_accuracy: float = Field(..., ge=0, allow_inf_nan=False)
 
 
 class OverrideCreate(BaseModel):

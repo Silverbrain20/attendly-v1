@@ -67,12 +67,12 @@ BEGIN
     WHERE id = p_session_id;
 
     IF NOT FOUND THEN
-        RETURN QUERY SELECT FALSE, 0.0, 'Session not found'::TEXT;
+        RETURN QUERY SELECT FALSE, 0.0::DOUBLE PRECISION, 'Session not found'::TEXT;
         RETURN;
     END IF;
 
     IF NOT v_session_active THEN
-        RETURN QUERY SELECT FALSE, 0.0, 'Session is not active or has expired'::TEXT;
+        RETURN QUERY SELECT FALSE, 0.0::DOUBLE PRECISION, 'Session is not active or has expired'::TEXT;
         RETURN;
     END IF;
 
@@ -83,7 +83,7 @@ BEGIN
     ) INTO v_enrolled;
 
     IF NOT v_enrolled THEN
-        RETURN QUERY SELECT FALSE, 0.0, 'Student is not enrolled in this course'::TEXT;
+        RETURN QUERY SELECT FALSE, 0.0::DOUBLE PRECISION, 'Student is not enrolled in this course'::TEXT;
         RETURN;
     END IF;
 
@@ -148,7 +148,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_check_session_overrides_cap
+CREATE OR REPLACE TRIGGER trg_check_session_overrides_cap
     BEFORE INSERT ON manual_overrides
     FOR EACH ROW
     EXECUTE FUNCTION check_session_overrides_cap();
@@ -172,7 +172,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_flag_session_on_override_cap
+CREATE OR REPLACE TRIGGER trg_flag_session_on_override_cap
     AFTER INSERT ON manual_overrides
     FOR EACH ROW
     EXECUTE FUNCTION flag_session_on_override_cap();

@@ -82,6 +82,7 @@ const Attend: React.FC = () => {
             session_id: sessionId,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
+            gps_accuracy: position.coords.accuracy,
           });
 
           // Safely parse distance_meters from API response structure

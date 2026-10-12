@@ -7,7 +7,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5.0-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Security Hardened](https://img.shields.io/badge/Security-Hardened-059669?style=flat-square&logo=shieldsdotio&logoColor=white)](#-security--hardening)
 
-> **Attendly** is a modern, enterprise-grade web application designed for higher education institutions to automate, verify, and monitor student class attendance using high-precision GPS geofencing, dynamic QR scanning, device fingerprinting, and manual override auditing.
+> **Attendly** is a web application designed for higher education institutions to automate, verify, and monitor student class attendance using browser GPS geofencing, session QR links, device fingerprinting, and manual override auditing.
 
 ---
 
@@ -16,9 +16,9 @@
 ### 📍 Geo-Fenced Check-In & Verification
 - **GPS Location Check**: Computes real-time distance between student device coordinates and session center.
 - **Configurable Geofence Radius**: Class Representatives can specify custom radii (e.g., 50m - 500m) per lecture session.
-- **Single Check-In Guarantee**: Atomic database procedures ensure students cannot double-mark attendance or spoof coordinates.
+- **Single Check-In Guarantee**: Atomic database procedures prevent duplicate attendance per student and session. Location checks use browser-reported coordinates; they do not prevent GPS spoofing.
 
-### 📱 Dynamic QR Code Generation
+### 📱 Session QR Code Generation
 - Real-time generation of QR codes linking directly to active attendance check-in sessions.
 - Class Reps can project or display QR codes in lecture halls for instant scanning.
 
@@ -32,10 +32,10 @@
 
 ### 🛡️ Manual Overrides & Audit Control
 - Accommodates edge-case device failures (e.g., hardware GPS faults) via controlled manual overrides.
-- **Override Cap (10 Max)**: Automatically flags sessions for administrative review if more than 10 manual overrides are issued per session.
+- **Override Cap (10 Max)**: Flags the session when the tenth override is issued and rejects further overrides.
 - Full audit log records who initiated each override, the student impacted, and mandatory reason notes.
 
-### 🔒 Enterprise Security & Device Fingerprinting
+### 🔒 Account Security & Device Fingerprinting
 - **Device Fingerprinting**: Captures client user-agent, resolution, and timezone. Flagged sign-ins from unrecognized devices trigger mandatory OTP verification via email.
 - **Rate Limiting**: Integrated SlowAPI rate-limiting guarding against brute-force attacks (5 attempts/15 mins on authentication, 30 req/min baseline).
 - **Payload & Input Limits**: 1MB maximum payload middleware preventing memory exhaustion, alongside strict Pydantic `max_length` bounds on all input schema fields.
@@ -132,6 +132,12 @@ attendly/
 
 ---
 
+### Database setup
+
+Run `database/001_schema.sql`, `database/002_functions.sql`, then `database/003_attendance_risk.sql` in order on a new PostgreSQL database with PostGIS. For an existing database, rerun `002_functions.sql` to update the functions and triggers, then run `003_attendance_risk.sql` to add risk fields. Both are safe to rerun and preserve existing records. Apply this migration before deploying the updated API.
+
+Risk scores are advisory flags for review, not automatic fraud verdicts. GPS accuracy is supplied by the browser. A QR code contains a fixed session URL and does not rotate; check-in still requires authentication, an active session, and coordinates inside its geofence.
+
 ### 2. Frontend Setup
 
 1. **Navigate to the frontend directory**:
@@ -213,3 +219,22 @@ Attendly enforces strict production security defaults:
 ## 📄 License
 
 This project is open-source and available under the [MIT License](LICENSE).
+
+## Regression tests
+
+From `backend`, install `requirements-dev.txt` and run:
+
+```powershell
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+```
+
+To also test real PostgreSQL/PostGIS behavior using the configured database:
+
+```powershell
+$env:RUN_DB_TESTS = '1'
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+```
+
+Database tests require permission to create a schema and installed PostGIS, uuid-ossp, and pgcrypto extensions. Each test uses a unique schema inside a transaction and rolls it back; existing application tables are not modified. The tests cover check-in, duplicate submissions, expired sessions, ownership checks, GPS validation, risk persistence, CSV totals, and override audit protections.
+
+From `frontend`, run `npm run build` to check TypeScript and build the production app.

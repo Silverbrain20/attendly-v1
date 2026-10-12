@@ -1,3 +1,4 @@
+from app.utils.permissions import require_course_owner, require_session_owner
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from app.config.database import db
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/api/export", tags=["Exports"])
 @router.get("/session/{session_id}")
 def export_session_attendance(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
+        require_session_owner(cursor, session_id, user)
         cursor.execute(
             """
             SELECT s.id, s.start_time, c.course_code, c.course_title, s.course_id
@@ -49,7 +51,8 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
     writer = csv.writer(output)
     writer.writerow([
         "Full Name", "Matric Number", "Email", "Phone Number",
-        "Status", "Method", "Distance (meters)", "Manual Override Reason", "Time Marked"
+        "Status", "Method", "Distance (meters)", "Manual Override Reason", "Time Marked",
+        "Risk Score", "Risk Level", "Risk Factors"
     ])
 
     for s in students:
@@ -67,7 +70,10 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
                 distance = f"{record['distance_meters']:.1f}" if record["distance_meters"] is not None else "Unknown"
         writer.writerow([
             s["full_name"], s["matric_number"], s["email"], s["phone_number"],
-            status, method, distance, override_reason, time_marked
+            status, method, distance, override_reason, time_marked,
+            record["risk_score"] if record else "",
+            record["risk_level"] if record else "",
+            "; ".join(record["risk_factors"]) if record else ""
         ])
 
     output.seek(0)
@@ -83,6 +89,7 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
 @router.get("/course/{course_id}")
 def export_course_attendance(course_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
+        require_course_owner(cursor, course_id, user)
         cursor.execute("SELECT id, course_code, course_title FROM courses WHERE id = %s", (course_id,))
         course = cursor.fetchone()
         if not course:
@@ -117,7 +124,7 @@ def export_course_attendance(course_id: str, user: dict = Depends(get_class_rep_
                 COUNT(CASE WHEN ar.is_manual_override THEN 1 END)    AS overrides
             FROM attendance_records ar
             JOIN attendance_sessions sess ON ar.session_id = sess.id
-            WHERE sess.course_id = %s
+            WHERE sess.course_id = %s AND (sess.ended_at IS NOT NULL OR sess.end_time < NOW())
             GROUP BY ar.student_id
             """,
             (course_id,)

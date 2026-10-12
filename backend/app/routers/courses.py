@@ -1,3 +1,4 @@
+from app.utils.permissions import require_course_owner
 import secrets
 import string
 from fastapi import APIRouter, HTTPException, Depends
@@ -36,14 +37,17 @@ def create_course(data: CourseCreate, user: dict = Depends(get_class_rep_user)):
 @router.get("")
 def list_my_courses(user: dict = Depends(get_current_user)):
     with db.get_cursor() as cursor:
+        # Representatives manage courses they created; enrollment alone grants no admin rights.
+        owner_filter = " AND c.created_by = %s" if user.get("role") == "class_rep" else ""
+        params = (user["user_id"], user["user_id"]) if owner_filter else (user["user_id"],)
         cursor.execute(
             """
             SELECT c.id, c.course_code, c.course_title, c.created_at
             FROM courses c
             JOIN course_enrollments ce ON c.id = ce.course_id
             WHERE ce.user_id = %s
-            """,
-            (user["user_id"],)
+            """ + owner_filter,
+            params
         )
         courses = cursor.fetchall()
     return {"status": "success", "data": courses}
@@ -74,6 +78,7 @@ def enroll(course_id: str, user: dict = Depends(get_current_user)):
 @router.get("/{course_id}/students")
 def list_course_students(course_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
+        require_course_owner(cursor, course_id, user)
         cursor.execute(
             """
             SELECT u.id, u.full_name, u.matric_number, u.email, u.phone_number

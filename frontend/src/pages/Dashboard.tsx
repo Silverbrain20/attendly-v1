@@ -200,12 +200,13 @@ const Dashboard: React.FC = () => {
     setActionError('');
     setActionSuccess('');
 
-    const markSelf = async (lat: number, lng: number) => {
+    const markSelf = async (lat: number, lng: number, accuracy: number) => {
       try {
         await apiRequest('POST', '/api/attendance/mark', {
           session_id: activeSession.id,
           latitude: lat,
           longitude: lng,
+          gps_accuracy: accuracy,
         });
         setIsRepMarked(true);
         setActionSuccess('✓ You have successfully marked yourself present for this session!');
@@ -219,12 +220,16 @@ const Dashboard: React.FC = () => {
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => markSelf(position.coords.latitude, position.coords.longitude),
-        () => markSelf(activeSession.latitude || 0.0, activeSession.longitude || 0.0),
+        (position) => markSelf(position.coords.latitude, position.coords.longitude, position.coords.accuracy),
+        () => {
+          setActionError('Could not acquire your location. Allow location access and try again.');
+          setRepCheckInLoading(false);
+        },
         { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {
-      await markSelf(activeSession.latitude || 0.0, activeSession.longitude || 0.0);
+      setActionError('Geolocation is not supported by your browser.');
+      setRepCheckInLoading(false);
     }
   };
 

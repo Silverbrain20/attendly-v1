@@ -1,3 +1,4 @@
+from app.utils.permissions import require_course_owner
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timedelta, timezone
 from app.config.database import db
@@ -25,6 +26,7 @@ def generate_qr_code_data_url(session_id: str) -> str:
 @router.post("")
 def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor(commit=True) as cursor:
+        require_course_owner(cursor, data.course_id, user)
         # Check if there is already an active session for the course code of this course
         cursor.execute("SELECT course_code FROM courses WHERE id = %s", (data.course_id,))
         course = cursor.fetchone()
@@ -48,8 +50,8 @@ def create_session(data: SessionCreate, user: dict = Depends(get_class_rep_user)
                 detail=f"An active attendance session for course code {course_code} is already running. Please end it first."
             )
 
-        start_time = datetime.now(timezone.utc) - timedelta(seconds=10)
-        end_time = start_time + timedelta(minutes=data.duration_minutes) + timedelta(seconds=10)
+        start_time = datetime.now(timezone.utc)
+        end_time = start_time + timedelta(minutes=data.duration_minutes)
 
         cursor.execute(
             """

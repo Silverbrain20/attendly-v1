@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from app.config.database import db
 from app.schemas.validators import AttendanceMark
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, get_class_rep_user
+from app.utils.permissions import require_session_owner
 from app.utils.risk import GEOFENCE_RADIUS_METRES, haversine_distance, calculate_risk_score
 import json
 
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
 def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends(get_current_user)):
     user_agent = request.headers.get("User-Agent", "Unknown")
     client_ip = request.client.host if request.client else "127.0.0.1"
-    gps_accuracy = getattr(data, "gps_accuracy", 10.0)
+    gps_accuracy = data.gps_accuracy
 
     with db.get_cursor(commit=True) as cursor:
         cursor.execute(
@@ -40,11 +41,6 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
         center_lat = float(sess["center_lat"]) if sess.get("center_lat") is not None else 0.0
         center_lng = float(sess["center_lng"]) if sess.get("center_lng") is not None else 0.0
 
-        # Guarantee exact session center coordinates for the session creator (Class Rep)
-        if sess["created_by"] == user["user_id"]:
-            data.latitude = center_lat
-            data.longitude = center_lng
-
         dist_m = haversine_distance(data.latitude, data.longitude, center_lat, center_lng)
         geofence_limit = float(sess.get("geofence_radius_m") or GEOFENCE_RADIUS_METRES)
         if dist_m > geofence_limit:
@@ -68,12 +64,6 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
             session_ips=session_ips,
         )
 
-        if risk_level == "block":
-            raise HTTPException(
-                status_code=403,
-                detail="Submission flagged as high risk. Contact your class rep for manual attendance.",
-            )
-
         cursor.execute(
             "SELECT * FROM mark_attendance_atomic(%s, %s, %s, %s, %s)",
             (data.session_id, user["user_id"], data.latitude, data.longitude, user_agent)
@@ -85,17 +75,14 @@ def mark_attendance(request: Request, data: AttendanceMark, user: dict = Depends
         if not res["success"]:
             raise HTTPException(status_code=400, detail=res["message"])
 
-        try:
-            cursor.execute(
-                """
-                UPDATE attendance_records
-                SET risk_score = %s, risk_factors = %s, risk_level = %s, client_ip = %s
-                WHERE session_id = %s AND student_id = %s
-                """,
-                (risk_score, json.dumps(risk_factors), risk_level, client_ip, data.session_id, user["user_id"])
-            )
-        except Exception:
-            pass
+        cursor.execute(
+            """
+            UPDATE attendance_records
+            SET risk_score = %s, risk_factors = %s, risk_level = %s, client_ip = %s
+            WHERE session_id = %s AND student_id = %s
+            """,
+            (risk_score, json.dumps(risk_factors), risk_level, client_ip, data.session_id, user["user_id"])
+        )
 
     return {
         "status": "success",
@@ -129,12 +116,13 @@ def my_attendance_history(user: dict = Depends(get_current_user)):
 
 
 @router.get("/session/{session_id}")
-def get_session_attendance(session_id: str, user: dict = Depends(get_current_user)):
+def get_session_attendance(session_id: str, user: dict = Depends(get_class_rep_user)):
     with db.get_cursor() as cursor:
+        require_session_owner(cursor, session_id, user)
         cursor.execute(
             """
             SELECT ar.id, ar.marked_at, ar.is_within_geofence, ar.is_manual_override, ar.distance_meters,
-                   u.full_name, u.matric_number
+                   u.full_name, u.matric_number, ar.risk_score, ar.risk_factors, ar.risk_level
             FROM attendance_records ar
             JOIN users u ON ar.student_id = u.id
             WHERE ar.session_id = %s

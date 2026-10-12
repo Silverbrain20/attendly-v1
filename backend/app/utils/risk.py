@@ -21,7 +21,7 @@ def calculate_risk_score(
     session_ips: List[str]
 ) -> Tuple[int, List[str], str]:
     """
-    PRD v3 Risk Engine — 4 Signals & 4 Tiers:
+    Advisory risk engine — four signals for representative review:
     1. Distance > 40m (Near geofence boundary): +15
     2. GPS accuracy > 50m (Poor GPS accuracy): +10
     3. Submission < 5 seconds after session start (Suspicious speed): +15
@@ -68,14 +68,12 @@ def calculate_risk_score(
 
     final_score = min(score, 100)
 
-    # Risk Tiers & Actions
+    # Advisory signals for review; never automatically reject attendance.
     if final_score <= 25:
         risk_level = "allow"
     elif final_score <= 50:
         risk_level = "flag"
-    elif final_score <= 75:
-        risk_level = "flag_high"
     else:
-        risk_level = "block"
+        risk_level = "flag_high"
 
     return final_score, factors, risk_level
