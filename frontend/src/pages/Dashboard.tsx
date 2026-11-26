@@ -661,6 +661,8 @@ const Dashboard: React.FC = () => {
               </div>
               {myActiveSessions.length === 0 ? (
                 <div className="empty-state" style={{ padding: '1.5rem 0' }}>
+                  <div className="empty-state-icon"><Radio size={28} /></div>
+                  <h3 style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '1rem' }}>No active sessions</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem', margin: 0 }}>
                     No active attendance sessions currently running for your enrolled courses.
                   </p>
@@ -695,7 +697,7 @@ const Dashboard: React.FC = () => {
 
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                <div className="icon-circle" style={{ width: '36px', height: '36px', background: '#F0FDF4', color: 'var(--success)' }}>
+                <div className="icon-circle icon-circle-primary" style={{ width: '36px', height: '36px' }}>
                   <BarChart3 size={18} />
                 </div>
                 <h2 style={{ fontSize: '1.25rem' }}>Attendance Summary</h2>
