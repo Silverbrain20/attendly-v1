@@ -28,16 +28,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     const token = localStorage.getItem('accessToken');
-    if (!token) {
+    if (!token || token === 'undefined' || token === 'null') {
+      if (token) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      }
       setUser(null);
       setIsLoading(false);
       return;
     }
 
-    // Safety timeout: if request hangs on background wake-up, fallback to login
+    // Safety timeout: if request hangs on background wake-up, unblock UI without logging out
     const timeout = setTimeout(() => {
       setIsLoading(false);
-    }, 3500);
+    }, 5000);
 
     try {
       const data = await apiRequest('GET', '/api/auth/me');
@@ -47,8 +51,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         logout();
       }
-    } catch (e) {
-      logout();
+    } catch (e: any) {
+      // apiRequest already clears tokens and dispatches auth_change on 401/refresh failure.
+      // Preserve session on transient network or cold-start errors.
+      if (e?.message === 'Session expired. Please log in again.') {
+        logout();
+      } else {
+        const cachedUser = localStorage.getItem('user');
+        if (cachedUser) {
+          try {
+            setUser((prev) => prev ?? JSON.parse(cachedUser));
+          } catch {
+            // ignore malformed cached user JSON
+          }
+        }
+      }
     } finally {
       clearTimeout(timeout);
       setIsLoading(false);
@@ -57,25 +74,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     refreshUser();
-    
+
     const handleAuthChange = () => {
       refreshUser();
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshUser();
-      }
-    };
-
     window.addEventListener('auth_change', handleAuthChange);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('auth_change', handleAuthChange);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, []);
 

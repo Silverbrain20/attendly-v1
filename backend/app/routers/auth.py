@@ -45,8 +45,8 @@ def _issue_tokens(cursor, user: dict) -> tuple[str, str]:
 
 
 async def _send_signup_otp(email: str) -> None:
-    """Fire-and-forget: send Supabase signup OTP without blocking the caller."""
-    loop = asyncio.get_event_loop()
+    """Await Supabase signup OTP delivery inside the request lifecycle."""
+    loop = asyncio.get_running_loop()
     try:
         await loop.run_in_executor(
             None,
@@ -57,8 +57,8 @@ async def _send_signup_otp(email: str) -> None:
 
 
 async def _send_device_otp(email: str) -> None:
-    """Fire-and-forget: send Supabase magic-link OTP for device verification."""
-    loop = asyncio.get_event_loop()
+    """Await Supabase magic-link OTP delivery for device verification."""
+    loop = asyncio.get_running_loop()
     try:
         await loop.run_in_executor(
             None,
@@ -69,8 +69,8 @@ async def _send_device_otp(email: str) -> None:
 
 
 async def _send_recovery_otp(email: str) -> None:
-    """Fire-and-forget: trigger Supabase password-reset email."""
-    loop = asyncio.get_event_loop()
+    """Await Supabase password-reset email delivery."""
+    loop = asyncio.get_running_loop()
     try:
         await loop.run_in_executor(
             None,
@@ -107,20 +107,22 @@ async def register(request: Request, data: StudentRegister):
             if "already registered" not in err and "already exists" not in err:
                 raise HTTPException(status_code=400, detail=f"Registration failed: {e}")
 
+        role = "class_rep" if data.is_class_rep else "student"
+
         cursor.execute(
             """
             INSERT INTO users (email, password_hash, full_name, matric_number, phone_number,
-                               device_fingerprint, is_email_verified)
-            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
+                               role, device_fingerprint, is_email_verified)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE)
             RETURNING id, role, is_email_verified
             """,
             (data.email, pwd_hash, data.full_name, data.matric_number, data.phone_number,
-             json.dumps(data.device_fingerprint) if data.device_fingerprint else None)
+             role, json.dumps(data.device_fingerprint) if data.device_fingerprint else None)
         )
         new_user = cursor.fetchone()
 
-    # Always guarantee OTP delivery — fire-and-forget so response returns immediately
-    asyncio.create_task(_send_signup_otp(data.email))
+    # Await OTP delivery so serverless runtimes (e.g. Vercel) do not freeze before sending
+    await _send_signup_otp(data.email)
 
     return {
         "status": "success",
@@ -153,8 +155,7 @@ async def login(request: Request, data: StudentLogin):
             raise HTTPException(status_code=401, detail="Invalid matric number or password")
 
         if not user["is_email_verified"]:
-            # Fire-and-forget resend — do not block the error response
-            asyncio.create_task(_send_signup_otp(user["email"]))
+            await _send_signup_otp(user["email"])
             raise HTTPException(status_code=403, detail="Please verify your email address first.")
 
         # Active session lock check
@@ -185,7 +186,7 @@ async def login(request: Request, data: StudentLogin):
                     (json.dumps(data.device_fingerprint), user["id"])
                 )
             elif not check_fingerprint_match(stored_fp, data.device_fingerprint):
-                asyncio.create_task(_send_device_otp(user["email"]))
+                await _send_device_otp(user["email"])
                 return {
                     "status": "needs_device_verification",
                     "email": user["email"],
@@ -277,7 +278,7 @@ async def forgot_password(request: Request, data: ForgotPassword):
     if not user["is_email_verified"]:
         raise HTTPException(status_code=400, detail="Email must be verified before password reset")
 
-    asyncio.create_task(_send_recovery_otp(data.email))
+    await _send_recovery_otp(data.email)
     return {"status": "success", "message": "Password reset code sent to your email"}
 
 
@@ -305,11 +306,11 @@ async def reset_password(request: Request, data: ResetPassword):
 @limiter.limit("3/10minutes")
 async def resend_otp(request: Request, data: ResendOtp):
     if data.type == "device":
-        asyncio.create_task(_send_device_otp(data.email))
+        await _send_device_otp(data.email)
     elif data.type == "recovery":
-        asyncio.create_task(_send_recovery_otp(data.email))
+        await _send_recovery_otp(data.email)
     else:
-        asyncio.create_task(_send_signup_otp(data.email))
+        await _send_signup_otp(data.email)
 
     return {"status": "success", "message": "Verification code resent successfully"}
 

@@ -73,7 +73,7 @@ def export_session_attendance(session_id: str, user: dict = Depends(get_class_re
             status, method, distance, override_reason, time_marked,
             record["risk_score"] if record else "",
             record["risk_level"] if record else "",
-            "; ".join(record["risk_factors"]) if record else ""
+            "; ".join(record.get("risk_factors") or []) if record else ""
         ])
 
     output.seek(0)

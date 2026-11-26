@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest, getDeviceFingerprint } from '../utils/api';
-import { useAuth } from '../context/AuthContext';
 import { User, Mail, Phone, Lock, AlertCircle, FileText } from 'lucide-react';
 import Logo from '../components/Logo';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-  const { setUserProfile } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [matric, setMatric] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [isClassRep, setIsClassRep] = useState(false);
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,13 +30,11 @@ const Register: React.FC = () => {
         phone_number: phone,
         email,
         password,
+        is_class_rep: isClassRep,
         device_fingerprint: fingerprint
       }, true);
 
       if (res.status === 'success') {
-        localStorage.setItem('accessToken', res.access_token);
-        localStorage.setItem('refreshToken', res.refresh_token);
-        setUserProfile(res.user);
         navigate(`/verify?email=${encodeURIComponent(email)}&type=email`);
       }
     } catch (err: any) {
@@ -153,6 +150,46 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
+            </div>
+
+            <div className="form-group">
+              <label
+                htmlFor="reg-class-rep"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.625rem',
+                  padding: '0.75rem 0.875rem',
+                  background: isClassRep ? 'var(--primary-light)' : 'var(--bg-subtle)',
+                  border: `1px solid ${isClassRep ? 'var(--primary)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  transition: 'border-color var(--transition-fast), background var(--transition-fast)',
+                }}
+              >
+                <input
+                  id="reg-class-rep"
+                  type="checkbox"
+                  checked={isClassRep}
+                  onChange={(e) => setIsClassRep(e.target.checked)}
+                  style={{
+                    marginTop: '0.1875rem',
+                    width: '16px',
+                    height: '16px',
+                    accentColor: 'var(--primary)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                />
+                <span>
+                  <span style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>
+                    Register as a Class Representative
+                  </span>
+                  <span style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                    Enables Class Rep controls to create courses, start sessions, and manage overrides.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <button

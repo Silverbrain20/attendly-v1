@@ -28,11 +28,13 @@ database_module.db = MagicMock()
 database_module.supabase = MagicMock()
 sys.modules["app.config.database"] = database_module
 from app.middleware.auth import get_current_user
-from app.routers import attendance, courses, export, overrides, sessions
+from app.routers import attendance, auth, courses, export, overrides, sessions
+from app.utils.limiter import limiter
 from app.utils.risk import calculate_risk_score, haversine_distance
 
 app = FastAPI()
-for module in (attendance, courses, export, overrides, sessions):
+app.state.limiter = limiter
+for module in (attendance, auth, courses, export, overrides, sessions):
     app.include_router(module.router)
 
 REP = {"user_id": str(uuid4()), "role": "class_rep"}
@@ -135,6 +137,47 @@ class APIRegressionTests(unittest.TestCase):
         ):
             self.assertEqual(calculate_risk_score(distance, accuracy, start, "same", ips)[::2], (score, level))
         self.assertAlmostEqual(haversine_distance(6.5, 3.4, 6.5, 3.4), 0)
+
+    def test_export_session_handles_null_risk_factors(self):
+        self.user = REP
+        now = datetime.now(timezone.utc)
+        self.cursor.fetchone.side_effect = [
+            {"created_by": REP["user_id"], "course_created_by": REP["user_id"]},
+            {"id": SESSION, "start_time": now, "course_code": "CSC301", "course_title": "DB", "course_id": COURSE},
+        ]
+        self.cursor.fetchall.side_effect = [
+            [{"id": STUDENT["user_id"], "full_name": "Ada", "matric_number": "22/01", "email": "a@b.com", "phone_number": "08012345678"}],
+            [{"student_id": STUDENT["user_id"], "marked_at": now, "is_manual_override": False, "distance_meters": 5.0,
+              "risk_score": 0, "risk_level": "allow", "risk_factors": None}],
+            [],
+        ]
+        response = self.client.get(f"/api/export/session/{SESSION}")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("Ada,22/01", response.text)
+
+    def test_register_assigns_class_rep_role_when_selected_and_awaits_otp(self):
+        database_module.supabase.reset_mock()
+        for is_class_rep, expected_role in ((False, "student"), (True, "class_rep")):
+            with self.subTest(is_class_rep=is_class_rep):
+                database_module.supabase.auth.resend.reset_mock()
+                self.cursor.fetchone.side_effect = [
+                    None,
+                    {"id": str(uuid4()), "role": expected_role, "is_email_verified": False},
+                ]
+                payload = {
+                    "email": f"user_{expected_role}@example.com",
+                    "password": "Password123!",
+                    "full_name": "Test User",
+                    "matric_number": f"22/52HP0{1 if is_class_rep else 2}",
+                    "phone_number": f"+23480000000{1 if is_class_rep else 2}",
+                    "is_class_rep": is_class_rep,
+                }
+                response = self.client.post("/api/auth/register", json=payload)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()["user"]["role"], expected_role)
+                insert_call = [c for c in self.cursor.execute.call_args_list if "INSERT INTO users" in c.args[0]][-1]
+                self.assertIn(expected_role, insert_call.args[1])
+                database_module.supabase.auth.resend.assert_called_once()
 
 
 @unittest.skipUnless(os.getenv("RUN_DB_TESTS") == "1", "Set RUN_DB_TESTS=1 for PostgreSQL checks")
